@@ -1,0 +1,13 @@
+{
+  "message": "Process creation failed.",
+  "processInstanceKey": null,
+  "details": [
+    {"id": "age-invalid", "field": "age", "invalid": true},
+    {"id": "annualIncome-invalid", "field": "annualIncome", "invalid": true},
+    {"id": "firstName-invalid", "field": "firstName", "invalid": true},
+    {"id": "interestTags-invalid", "field": "interestTags", "invalid": true},
+    {"id": "newsletterConsent-invalid", "field": "newsletterConsent", "invalid": true},
+    {"id": "profile-invalid", "field": "profile", "invalid": true},
+    {"id": "profile.bio-invalid", "field": "profile.bio", "invalid": true}
+  ]
+}

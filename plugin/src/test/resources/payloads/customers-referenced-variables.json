@@ -1,0 +1,10 @@
+{
+  "contactChannel": {
+    "emailAddress": "alice@example.com",
+    "timeWindow": "09:00-17:00"
+  },
+  "residence": {
+    "cityName": "Stockholm",
+    "countryCode": "SE"
+  }
+}

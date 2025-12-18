@@ -1,0 +1,11 @@
+# POST /customers/oneOf
+{
+  req: request.body,
+  rules: [
+    {id: "cardNumber-invalid", invalid: req.cardNumber=null or not(req.cardNumber instance of string) or is blank(req.cardNumber)},
+    {id: "cvv-invalid", invalid: req.cvv=null or not(req.cvv instance of string) or is blank(req.cvv)},
+    {id: "iban-invalid", invalid: req.iban=null or not(req.iban instance of string) or is blank(req.iban)},
+    {id: "swift-invalid", invalid: req.swift=null or not(req.swift instance of string) or is blank(req.swift)}
+  ],
+  isValid: count(rules[invalid=true])=0
+}.isValid

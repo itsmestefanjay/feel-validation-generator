@@ -1,0 +1,72 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Reference Activation API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/customers/referenced": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerReference"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CustomerReference": {
+        "type": "object",
+        "required": [
+          "contactChannel",
+          "residence"
+        ],
+        "properties": {
+          "contactChannel": {
+            "$ref": "#/components/schemas/ContactChannel"
+          },
+          "residence": {
+            "$ref": "#/components/schemas/Residence"
+          }
+        }
+      },
+      "ContactChannel": {
+        "type": "object",
+        "required": [
+          "emailAddress",
+          "timeWindow"
+        ],
+        "properties": {
+          "emailAddress": {
+            "type": "string"
+          },
+          "timeWindow": {
+            "type": "string"
+          }
+        }
+      },
+      "Residence": {
+        "type": "object",
+        "required": [
+          "cityName",
+          "countryCode"
+        ],
+        "properties": {
+          "cityName": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

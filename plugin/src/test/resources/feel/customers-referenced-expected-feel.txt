@@ -1,0 +1,13 @@
+# POST /customers/referenced
+{
+  req: request.body,
+  rules: [
+    {id: "contactChannel-invalid", invalid: req.contactChannel=null or not(req.contactChannel instance of context)},
+    {id: "residence-invalid", invalid: req.residence=null or not(req.residence instance of context)},
+    {id: "contactChannel.emailAddress-invalid", invalid: req.contactChannel.emailAddress=null or not(req.contactChannel.emailAddress instance of string) or is blank(req.contactChannel.emailAddress)},
+    {id: "contactChannel.timeWindow-invalid", invalid: req.contactChannel.timeWindow=null or not(req.contactChannel.timeWindow instance of string) or is blank(req.contactChannel.timeWindow)},
+    {id: "residence.cityName-invalid", invalid: req.residence.cityName=null or not(req.residence.cityName instance of string) or is blank(req.residence.cityName)},
+    {id: "residence.countryCode-invalid", invalid: req.residence.countryCode=null or not(req.residence.countryCode instance of string) or is blank(req.residence.countryCode)}
+  ],
+  isValid: count(rules[invalid=true])=0
+}.isValid

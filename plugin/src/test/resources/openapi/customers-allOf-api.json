@@ -1,0 +1,56 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "AllOf Activation API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/customers/allOf": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/BaseCustomer"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LoyaltyInfo"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BaseCustomer": {
+        "type": "object",
+        "required": [
+          "documentId"
+        ],
+        "properties": {
+          "documentId": {
+            "type": "string"
+          }
+        }
+      },
+      "LoyaltyInfo": {
+        "type": "object",
+        "required": [
+          "loyaltyAccepted"
+        ],
+        "properties": {
+          "loyaltyAccepted": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

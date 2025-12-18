@@ -1,0 +1,12 @@
+{
+  "firstName": "Alice",
+  "age": "30",
+  "annualIncome": "42000",
+  "newsletterConsent": true,
+  "interestTags": [
+    "vip"
+  ],
+  "profile": {
+    "bio": "Long-time customer"
+  }
+}

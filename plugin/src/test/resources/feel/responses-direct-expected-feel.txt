@@ -1,0 +1,19 @@
+# POST /responses/direct
+{
+  req: request.body,
+  rules: [
+    { id: "age-invalid", field: "age", invalid: req.age=null or number(req.age)=null },
+    { id: "annualIncome-invalid", field: "annualIncome", invalid: req.annualIncome=null or number(req.annualIncome)=null },
+    { id: "firstName-invalid", field: "firstName", invalid: req.firstName=null or not(req.firstName instance of string) or is blank(req.firstName) },
+    { id: "interestTags-invalid", field: "interestTags", invalid: req.interestTags=null or is empty(req.interestTags) },
+    { id: "newsletterConsent-invalid", field: "newsletterConsent", invalid: req.newsletterConsent=null or not(req.newsletterConsent instance of boolean) },
+    { id: "profile-invalid", field: "profile", invalid: req.profile=null or not(req.profile instance of context) },
+    { id: "profile.bio-invalid", field: "profile.bio", invalid: req.profile.bio=null or not(req.profile.bio instance of string) or is blank(req.profile.bio) }
+  ],
+  isValid: count(rules[invalid=true])=0,
+  body: {
+    message: if isValid then "Process successfully started." else "Process creation failed.",
+    processInstanceKey: if isValid then correlation.processInstanceKey else null,
+    details: rules[invalid=true]
+  }, statusCode: if isValid then 201 else 400
+}

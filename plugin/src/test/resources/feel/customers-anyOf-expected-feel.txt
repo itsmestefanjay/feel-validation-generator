@@ -1,0 +1,11 @@
+# POST /customers/anyOf
+{
+  req: request.body,
+  rules: [
+    {id: "email-invalid", invalid: req.email=null or not(req.email instance of string) or is blank(req.email)},
+    {id: "frequency-invalid", invalid: req.frequency=null or not(req.frequency instance of string) or is blank(req.frequency)},
+    {id: "phone-invalid", invalid: req.phone=null or not(req.phone instance of string) or is blank(req.phone)},
+    {id: "timezone-invalid", invalid: req.timezone=null or not(req.timezone instance of string) or is blank(req.timezone)}
+  ],
+  isValid: count(rules[invalid=true])=0
+}.isValid

@@ -1,0 +1,64 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "AnyOf Activation API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/customers/anyOf": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EmailChannel"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PhoneChannel"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "EmailChannel": {
+        "type": "object",
+        "required": [
+          "email",
+          "frequency"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "frequency": {
+            "type": "string"
+          }
+        }
+      },
+      "PhoneChannel": {
+        "type": "object",
+        "required": [
+          "phone",
+          "timezone"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Response Direct API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/responses/direct": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "age",
+                  "annualIncome",
+                  "firstName",
+                  "interestTags",
+                  "newsletterConsent",
+                  "profile"
+                ],
+                "properties": {
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "age": {
+                    "type": "integer"
+                  },
+                  "annualIncome": {
+                    "type": "number"
+                  },
+                  "newsletterConsent": {
+                    "type": "boolean"
+                  },
+                  "interestTags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "profile": {
+                    "type": "object",
+                    "required": [
+                      "bio"
+                    ],
+                    "properties": {
+                      "bio": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

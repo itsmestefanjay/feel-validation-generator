@@ -1,0 +1,64 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "OneOf Activation API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/customers/oneOf": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CardPayment"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BankPayment"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CardPayment": {
+        "type": "object",
+        "required": [
+          "cardNumber",
+          "cvv"
+        ],
+        "properties": {
+          "cardNumber": {
+            "type": "string"
+          },
+          "cvv": {
+            "type": "string"
+          }
+        }
+      },
+      "BankPayment": {
+        "type": "object",
+        "required": [
+          "iban",
+          "swift"
+        ],
+        "properties": {
+          "iban": {
+            "type": "string"
+          },
+          "swift": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

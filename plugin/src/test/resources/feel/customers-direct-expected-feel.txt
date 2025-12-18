@@ -1,0 +1,14 @@
+# POST /customers/direct
+{
+  req: request.body,
+  rules: [
+    {id: "age-invalid", invalid: req.age=null or number(req.age)=null},
+    {id: "annualIncome-invalid", invalid: req.annualIncome=null or number(req.annualIncome)=null},
+    {id: "firstName-invalid", invalid: req.firstName=null or not(req.firstName instance of string) or is blank(req.firstName)},
+    {id: "interestTags-invalid", invalid: req.interestTags=null or is empty(req.interestTags)},
+    {id: "newsletterConsent-invalid", invalid: req.newsletterConsent=null or not(req.newsletterConsent instance of boolean)},
+    {id: "profile-invalid", invalid: req.profile=null or not(req.profile instance of context)},
+    {id: "profile.bio-invalid", invalid: req.profile.bio=null or not(req.profile.bio instance of string) or is blank(req.profile.bio)}
+  ],
+  isValid: count(rules[invalid=true])=0
+}.isValid

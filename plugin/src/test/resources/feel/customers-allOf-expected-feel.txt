@@ -1,0 +1,9 @@
+# POST /customers/allOf
+{
+  req: request.body,
+  rules: [
+    {id: "documentId-invalid", invalid: req.documentId=null or not(req.documentId instance of string) or is blank(req.documentId)},
+    {id: "loyaltyAccepted-invalid", invalid: req.loyaltyAccepted=null or not(req.loyaltyAccepted instance of boolean)}
+  ],
+  isValid: count(rules[invalid=true])=0
+}.isValid
