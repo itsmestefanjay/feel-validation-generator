@@ -228,7 +228,7 @@ public class FEELValidationGenerator {
             return this;
         }
 
-        public Builder withRuleBuilder(ValidationRuleBuilder ruleBuilder) {
+        Builder withRuleBuilder(ValidationRuleBuilder ruleBuilder) {
             this.customRuleBuilder = ruleBuilder;
             return this;
         }
