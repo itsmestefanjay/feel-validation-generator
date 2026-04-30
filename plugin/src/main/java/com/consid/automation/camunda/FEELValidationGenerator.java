@@ -234,7 +234,17 @@ public class FEELValidationGenerator {
         }
 
         public FEELValidationGenerator build() {
+            requireValidStatusCode(successStatusCode, "successStatusCode");
+            requireValidStatusCode(failureStatusCode, "failStatusCode");
             return new FEELValidationGenerator(this);
+        }
+
+        private static void requireValidStatusCode(int statusCode, String name) {
+            if (statusCode < 100 || statusCode > 599) {
+                throw new IllegalArgumentException(
+                    name + " must be a valid HTTP status code (100-599): " + statusCode
+                );
+            }
         }
     }
 }

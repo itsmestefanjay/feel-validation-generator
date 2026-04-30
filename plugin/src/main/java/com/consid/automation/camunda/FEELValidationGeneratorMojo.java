@@ -80,9 +80,6 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
                     .map(String::toUpperCase)
                     .toList();
 
-            validateStatusCode(successStatusCode, "successStatusCode");
-            validateStatusCode(failStatusCode, "failStatusCode");
-
             FEELValidationGenerator generator = FEELValidationGenerator.builder()
                 .withOpenApiPath(openApiSpec)
                 .withOutputFilePath(outputFile)
@@ -99,14 +96,6 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
             throw e;
         } catch (Exception e) {
             throw new MojoExecutionException("Error generating FEEL validations", e);
-        }
-    }
-
-    private void validateStatusCode(int statusCode, String name) throws MojoFailureException {
-        if (statusCode < 100 || statusCode > 599) {
-            throw new MojoFailureException(
-                name + " must be a valid HTTP status code (100-599): " + statusCode
-            );
         }
     }
 }
