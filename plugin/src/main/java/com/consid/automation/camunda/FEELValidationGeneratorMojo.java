@@ -1,6 +1,7 @@
 package com.consid.automation.camunda;
 
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.maven.plugin.AbstractMojo;
@@ -67,9 +68,7 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
             getLog().info("Input OpenAPI spec: " + openApiSpec);
             getLog().info("Output file: " + outputFile);
 
-            // Validate input file exists
-            File inputFile = new File(openApiSpec);
-            if (!inputFile.exists()) {
+            if (!Files.exists(Path.of(openApiSpec))) {
                 throw new MojoFailureException("OpenAPI specification file not found: " + openApiSpec);
             }
 
