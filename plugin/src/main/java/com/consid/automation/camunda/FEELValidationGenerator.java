@@ -213,12 +213,12 @@ public class FEELValidationGenerator {
             return this;
         }
 
-        public Builder withSuccessCode(int statusCode) {
+        public Builder withSuccessStatusCode(int statusCode) {
             this.successStatusCode = statusCode;
             return this;
         }
 
-        public Builder withFailCode(int statusCode) {
+        public Builder withFailStatusCode(int statusCode) {
             this.failureStatusCode = statusCode;
             return this;
         }

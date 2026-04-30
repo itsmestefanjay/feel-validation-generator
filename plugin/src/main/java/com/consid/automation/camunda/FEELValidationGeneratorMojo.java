@@ -84,8 +84,8 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
                 .withOpenApiPath(openApiSpec)
                 .withOutputFilePath(outputFile)
                 .withResponse(addResponse)
-                .withSuccessCode(successStatusCode)
-                .withFailCode(failStatusCode)
+                .withSuccessStatusCode(successStatusCode)
+                .withFailStatusCode(failStatusCode)
                 .withHttpMethods(methodList)
                 .build();
             generator.generate();
