@@ -1,9 +1,10 @@
 package com.consid.automation.camunda;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.media.Schema;
 import java.util.Locale;
-import java.util.Optional;
+import java.util.Map;
 
 /**
  * Determines the type of a field from an OpenAPI schema.
@@ -60,21 +61,26 @@ public class FieldTypeResolver {
 
     /**
      * Resolves a schema reference to the actual schema definition.
+     * Throws {@link IllegalStateException} when the reference cannot be resolved
+     * — a broken spec should fail loud rather than emit UNKNOWN rules.
      */
     public Schema<?> resolveSchemaReference(Schema<?> schema) {
         if (schema == null) {
             return null;
         }
-        
+
         String ref = schema.get$ref();
-        if (ref != null && ref.startsWith(SCHEMA_PATH_PREFIX)) {
-            String schemaName = ref.substring(SCHEMA_PATH_PREFIX.length());
-            return Optional.ofNullable(openAPI.getComponents())
-                .map(components -> components.getSchemas())
-                .map(schemas -> schemas.get(schemaName))
-                .orElse(schema);
+        if (ref == null || !ref.startsWith(SCHEMA_PATH_PREFIX)) {
+            return schema;
         }
-        
-        return schema;
+
+        String schemaName = ref.substring(SCHEMA_PATH_PREFIX.length());
+        Components components = openAPI.getComponents();
+        Map<String, Schema> schemas = components == null ? null : components.getSchemas();
+        Schema<?> resolved = schemas == null ? null : schemas.get(schemaName);
+        if (resolved == null) {
+            throw new IllegalStateException("Unresolved $ref: " + ref);
+        }
+        return resolved;
     }
 }
