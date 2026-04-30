@@ -27,40 +27,40 @@ public class RequiredFieldsExtractor {
      */
     public Map<String, FieldType> extract(Schema<?> schema) {
         Map<String, FieldType> requiredFields = new LinkedHashMap<>();
-        // Track visited schema instances by identity to break reference cycles safely.
-        Set<Schema<?>> processedSchemas = Collections.newSetFromMap(new IdentityHashMap<>());
-        collectRequiredFields(schema, requiredFields, "", processedSchemas);
+        Set<Schema<?>> activeStack = Collections.newSetFromMap(new IdentityHashMap<>());
+        collectRequiredFields(schema, requiredFields, "", activeStack);
         return requiredFields;
     }
 
     /**
      * Recursively collects required fields from a schema.
+     * {@code activeStack} tracks schemas currently on the recursion path so that
+     * a self-referential schema terminates while a component reused at multiple
+     * field paths is still expanded each time.
      */
     private void collectRequiredFields(Schema<?> schema, Map<String, FieldType> requiredFields,
-                                       String pathPrefix, Set<Schema<?>> processedSchemas) {
+                                       String pathPrefix, Set<Schema<?>> activeStack) {
         if (schema == null) {
             return;
         }
 
-        // Resolve schema reference first (handles $ref at any level)
         schema = typeResolver.resolveSchemaReference(schema);
         if (schema == null) {
             return;
         }
 
-        if (!processedSchemas.add(schema)) {
+        if (!activeStack.add(schema)) {
             return;
         }
-
-        // Process direct required fields
-        processDirectRequiredFields(schema, requiredFields, pathPrefix);
-
-        processComposition(schema.getAllOf(), requiredFields, pathPrefix, processedSchemas);
-        processComposition(schema.getOneOf(), requiredFields, pathPrefix, processedSchemas);
-        processComposition(schema.getAnyOf(), requiredFields, pathPrefix, processedSchemas);
-
-        // Process nested properties
-        processNestedProperties(schema, requiredFields, pathPrefix, processedSchemas);
+        try {
+            processDirectRequiredFields(schema, requiredFields, pathPrefix);
+            processComposition(schema.getAllOf(), requiredFields, pathPrefix, activeStack);
+            processComposition(schema.getOneOf(), requiredFields, pathPrefix, activeStack);
+            processComposition(schema.getAnyOf(), requiredFields, pathPrefix, activeStack);
+            processNestedProperties(schema, requiredFields, pathPrefix, activeStack);
+        } finally {
+            activeStack.remove(schema);
+        }
     }
 
     private void processDirectRequiredFields(Schema<?> schema, Map<String, FieldType> requiredFields, String pathPrefix) {
@@ -83,19 +83,19 @@ public class RequiredFieldsExtractor {
     }
 
     private void processComposition(List<?> schemas, Map<String, FieldType> requiredFields,
-                                    String pathPrefix, Set<Schema<?>> processedSchemas) {
+                                    String pathPrefix, Set<Schema<?>> activeStack) {
         if (schemas == null || schemas.isEmpty()) {
             return;
         }
         for (Object element : schemas) {
             if (element instanceof Schema<?> composedSchema) {
-                collectRequiredFields(composedSchema, requiredFields, pathPrefix, processedSchemas);
+                collectRequiredFields(composedSchema, requiredFields, pathPrefix, activeStack);
             }
         }
     }
 
     private void processNestedProperties(Schema<?> schema, Map<String, FieldType> requiredFields,
-                                         String pathPrefix, Set<Schema<?>> processedSchemas) {
+                                         String pathPrefix, Set<Schema<?>> activeStack) {
         if (schema.getProperties() == null) {
             return;
         }
@@ -109,7 +109,7 @@ public class RequiredFieldsExtractor {
 
             FieldType fieldType = typeResolver.resolve(propSchema);
             if (fieldType == FieldType.OBJECT) {
-                collectRequiredFields(propSchema, requiredFields, newPath, processedSchemas);
+                collectRequiredFields(propSchema, requiredFields, newPath, activeStack);
             }
         }
     }
