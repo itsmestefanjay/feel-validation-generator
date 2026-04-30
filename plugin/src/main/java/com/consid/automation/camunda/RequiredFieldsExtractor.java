@@ -94,17 +94,19 @@ public class RequiredFieldsExtractor {
         }
     }
 
+    @SuppressWarnings("rawtypes") // Schema's API exposes Map<String, Schema> raw.
     private void processNestedProperties(Schema<?> schema, Map<String, FieldType> requiredFields,
                                          String pathPrefix, Set<Schema<?>> activeStack) {
-        if (schema.getProperties() == null) {
+        Map<String, Schema> properties = schema.getProperties();
+        if (properties == null) {
             return;
         }
 
-        List<String> propertyNames = new ArrayList<>(schema.getProperties().keySet());
+        List<String> propertyNames = new ArrayList<>(properties.keySet());
         Collections.sort(propertyNames);
 
         for (String propName : propertyNames) {
-            Schema<?> propSchema = (Schema<?>) schema.getProperties().get(propName);
+            Schema<?> propSchema = properties.get(propName);
             String newPath = buildFieldPath(pathPrefix, propName);
 
             FieldType fieldType = typeResolver.resolve(propSchema);
