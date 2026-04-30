@@ -1,6 +1,7 @@
 package com.consid.automation.camunda;
 
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.maven.plugin.AbstractMojo;
@@ -67,9 +68,7 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
             getLog().info("Input OpenAPI spec: " + openApiSpec);
             getLog().info("Output file: " + outputFile);
 
-            // Validate input file exists
-            File inputFile = new File(openApiSpec);
-            if (!inputFile.exists()) {
+            if (!Files.exists(Path.of(openApiSpec))) {
                 throw new MojoFailureException("OpenAPI specification file not found: " + openApiSpec);
             }
 
@@ -80,15 +79,12 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
                     .map(String::toUpperCase)
                     .toList();
 
-            validateStatusCode(successStatusCode, "successStatusCode");
-            validateStatusCode(failStatusCode, "failStatusCode");
-
             FEELValidationGenerator generator = FEELValidationGenerator.builder()
                 .withOpenApiPath(openApiSpec)
                 .withOutputFilePath(outputFile)
                 .withResponse(addResponse)
-                .withSuccessCode(successStatusCode)
-                .withFailCode(failStatusCode)
+                .withSuccessStatusCode(successStatusCode)
+                .withFailStatusCode(failStatusCode)
                 .withHttpMethods(methodList)
                 .build();
             generator.generate();
@@ -99,14 +95,6 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
             throw e;
         } catch (Exception e) {
             throw new MojoExecutionException("Error generating FEEL validations", e);
-        }
-    }
-
-    private void validateStatusCode(int statusCode, String name) throws MojoFailureException {
-        if (statusCode < 100 || statusCode > 599) {
-            throw new MojoFailureException(
-                name + " must be a valid HTTP status code (100-599): " + statusCode
-            );
         }
     }
 }

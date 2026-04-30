@@ -213,12 +213,12 @@ public class FEELValidationGenerator {
             return this;
         }
 
-        public Builder withSuccessCode(int statusCode) {
+        public Builder withSuccessStatusCode(int statusCode) {
             this.successStatusCode = statusCode;
             return this;
         }
 
-        public Builder withFailCode(int statusCode) {
+        public Builder withFailStatusCode(int statusCode) {
             this.failureStatusCode = statusCode;
             return this;
         }
@@ -228,13 +228,23 @@ public class FEELValidationGenerator {
             return this;
         }
 
-        public Builder withRuleBuilder(ValidationRuleBuilder ruleBuilder) {
+        Builder withRuleBuilder(ValidationRuleBuilder ruleBuilder) {
             this.customRuleBuilder = ruleBuilder;
             return this;
         }
 
         public FEELValidationGenerator build() {
+            requireValidStatusCode(successStatusCode, "successStatusCode");
+            requireValidStatusCode(failureStatusCode, "failStatusCode");
             return new FEELValidationGenerator(this);
+        }
+
+        private static void requireValidStatusCode(int statusCode, String name) {
+            if (statusCode < 100 || statusCode > 599) {
+                throw new IllegalArgumentException(
+                    name + " must be a valid HTTP status code (100-599): " + statusCode
+                );
+            }
         }
     }
 }

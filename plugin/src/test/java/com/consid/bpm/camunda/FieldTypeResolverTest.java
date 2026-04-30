@@ -11,6 +11,7 @@ import com.consid.automation.camunda.FieldTypeResolver;
 import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for FieldTypeResolver.
@@ -142,14 +143,14 @@ class FieldTypeResolverTest {
     }
 
     @Test
-    void test_resolve_reference_without_components_does_return_original_schema_as_expected() {
+    void test_resolve_reference_without_components_does_throw_as_expected() {
         resolver = new FieldTypeResolver(openAPI);
         Schema<?> schema = new Schema<>().type("string");
         schema.set$ref("#/components/schemas/Missing");
 
-        Schema<?> resolved = resolver.resolveSchemaReference(schema);
-
-        assertThat(resolved).as("Schema should remain unchanged when components are missing").isSameAs(schema);
+        assertThatThrownBy(() -> resolver.resolveSchemaReference(schema))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("#/components/schemas/Missing");
     }
 
     @Test

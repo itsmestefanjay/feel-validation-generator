@@ -109,6 +109,7 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
             <version>1.7.36</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -143,10 +144,5 @@
                 <version>3.3.1</version>
             </plugin>
         </plugins>
-        <resources>
-            <resource>
-                <directory>src/test/resources</directory>
-            </resource>
-        </resources>
     </build>
 </project>

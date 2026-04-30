@@ -2,12 +2,36 @@ package com.consid.automation.camunda;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Centralizes all FEEL-specific rule building and rendering logic so that the rest
  * of the generator remains focused on OpenAPI traversal.
  */
 public class FEELRuleGenerator implements ValidationRuleBuilder {
+
+    private static final String ACTIVATION_TEMPLATE = """
+            {
+              req: request.body,
+              rules: [
+            %s
+              ],
+              isValid: count(rules[invalid=true])=0
+            }.isValid""";
+
+    private static final String RESPONSE_TEMPLATE = """
+            {
+              req: request.body,
+              rules: [
+            %s
+              ],
+              isValid: count(rules[invalid=true])=0,
+              body: {
+                message: if isValid then "Process successfully started." else "Process creation failed.",
+                processInstanceKey: if isValid then correlation.processInstanceKey else null,
+                details: rules[invalid=true]
+              }, statusCode: if isValid then %d else %d
+            }""";
 
     private final boolean addResponse;
     private final FEELExpressionBuilder expressionBuilder;
@@ -41,67 +65,27 @@ public class FEELRuleGenerator implements ValidationRuleBuilder {
 
     @Override
     public String render(Map<String, List<ValidationRule>> rulesByEndpoint) {
-        StringBuilder output = new StringBuilder();
-        boolean first = true;
-        for (Map.Entry<String, List<ValidationRule>> entry : rulesByEndpoint.entrySet()) {
-            if (!first) {
-                output.append("\n\n");
-            }
-            first = false;
-
-            output.append(entry.getKey()).append("\n");
-            output.append(buildRulesBlock(entry.getValue()));
-        }
-        return output.toString().stripTrailing();
+        return rulesByEndpoint.entrySet().stream()
+            .map(entry -> entry.getKey() + "\n" + buildRulesBlock(entry.getValue()))
+            .collect(Collectors.joining("\n\n"));
     }
 
     private String buildRulesBlock(List<ValidationRule> rules) {
-        StringBuilder block = new StringBuilder();
-        block.append("{\n");
-        block.append("  req: request.body,\n");
-        block.append("  rules: [\n");
-        for (int i = 0; i < rules.size(); i++) {
-            block.append("    " + formatRuleLine(rules.get(i)));
-            if (i < rules.size() - 1) {
-                block.append(",");
-            }
-            block.append("\n");
-        }
-        block.append("  ],\n");
-        block.append("  isValid: count(rules[invalid=true])=0");
-
-        if (addResponse) {
-            appendResponseBlock(block);
-            block.append("\n}");
-        } else {
-            block.append("\n}.isValid");
-        }
-
-        return block.toString();
+        String renderedRules = rules.stream()
+            .map(rule -> "    " + formatRuleLine(rule))
+            .collect(Collectors.joining(",\n"));
+        return addResponse
+            ? RESPONSE_TEMPLATE.formatted(renderedRules, successStatusCode, failureStatusCode)
+            : ACTIVATION_TEMPLATE.formatted(renderedRules);
     }
 
     private String formatRuleLine(ValidationRule rule) {
-        if (addResponse) {
-            return String.format(
-                "{ id: \"%s\", field: \"%s\", invalid: %s }",
-                rule.id(),
-                rule.fieldPath(),
-                rule.invalidExpression()
-            );
-        }
-        return String.format("{id: \"%s\", invalid: %s}", rule.id(), rule.invalidExpression());
-    }
-
-    private void appendResponseBlock(StringBuilder block) {
-        block.append(",\n");
-        block.append("  body: {\n");
-        block.append("    message: if isValid then \"Process successfully started.\" else \"Process creation failed.\",\n");
-        block.append("    processInstanceKey: if isValid then correlation.processInstanceKey else null,\n");
-        block.append("    details: rules[invalid=true]\n");
-        block.append("  }, statusCode: if isValid then ")
-            .append(successStatusCode)
-            .append(" else ")
-            .append(failureStatusCode);
+        String pad = addResponse ? " " : "";
+        String fieldPart = addResponse ? ", field: \"" + rule.fieldPath() + "\"" : "";
+        return String.format(
+            "{%sid: \"%s\"%s, invalid: %s%s}",
+            pad, rule.id(), fieldPart, rule.invalidExpression(), pad
+        );
     }
 
     private int validateStatusCode(int statusCode, String name) {

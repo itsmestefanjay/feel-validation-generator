@@ -1,0 +1,10 @@
+{
+  "billingAddress": {
+    "city": "Springfield",
+    "street": "123 Main St"
+  },
+  "shippingAddress": {
+    "city": "Shelbyville",
+    "street": "456 Oak Ave"
+  }
+}

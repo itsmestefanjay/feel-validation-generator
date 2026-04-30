@@ -96,8 +96,8 @@ FEELValidationGenerator generator = FEELValidationGenerator.builder()
     .withOpenApiPath("src/main/resources/api.yaml")
     .withOutputFilePath("target/validation.feel")
     .withResponse(true)
-    .withSuccessCode(202)
-    .withFailCode(422)
+    .withSuccessStatusCode(202)
+    .withFailStatusCode(422)
     .withHttpMethods(List.of("POST"))
     .build();
 generator.generate();
