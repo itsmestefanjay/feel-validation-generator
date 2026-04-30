@@ -82,6 +82,17 @@ public class FEELValidationGeneratorActivationTest extends AbstractFEELValidatio
         );
     }
 
+    @Test
+    public void test_customers_shared_component_activation_does_expand_at_every_reference() throws IOException {
+        runActivationScenario(
+            "customers-shared-valid",
+            "openapi/customers-shared-api.json",
+            "feel/customers-shared-expected-feel.txt",
+            "payloads/customers-shared-variables.json",
+            true
+        );
+    }
+
     private void runActivationScenario(String scenarioId,
                                        String openApiResource,
                                        String expectedFeelResource,

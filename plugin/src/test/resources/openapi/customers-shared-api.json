@@ -1,0 +1,54 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Shared Component API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/customers/shared": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "billingAddress",
+                  "shippingAddress"
+                ],
+                "properties": {
+                  "billingAddress": {
+                    "$ref": "#/components/schemas/Address"
+                  },
+                  "shippingAddress": {
+                    "$ref": "#/components/schemas/Address"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Address": {
+        "type": "object",
+        "required": [
+          "city",
+          "street"
+        ],
+        "properties": {
+          "city": {
+            "type": "string"
+          },
+          "street": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
