@@ -81,15 +81,12 @@ public class FEELRuleGenerator implements ValidationRuleBuilder {
     }
 
     private String formatRuleLine(ValidationRule rule) {
-        if (addResponse) {
-            return String.format(
-                "{ id: \"%s\", field: \"%s\", invalid: %s }",
-                rule.id(),
-                rule.fieldPath(),
-                rule.invalidExpression()
-            );
-        }
-        return String.format("{id: \"%s\", invalid: %s}", rule.id(), rule.invalidExpression());
+        String pad = addResponse ? " " : "";
+        String fieldPart = addResponse ? ", field: \"" + rule.fieldPath() + "\"" : "";
+        return String.format(
+            "{%sid: \"%s\"%s, invalid: %s%s}",
+            pad, rule.id(), fieldPart, rule.invalidExpression(), pad
+        );
     }
 
     private void appendResponseBlock(StringBuilder block) {
