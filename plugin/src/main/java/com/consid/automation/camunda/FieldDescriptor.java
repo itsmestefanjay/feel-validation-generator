@@ -5,21 +5,38 @@ import java.util.Objects;
 
 /**
  * Resolved description of a single OpenAPI field. Carries the base type plus the
- * orthogonal axes the FEEL generator needs to emit a complete rule: whether the
- * field is nullable and any enum the value must belong to.
+ * orthogonal axes the FEEL generator needs to emit a complete rule: nullability,
+ * the enum set the value must belong to, and the trigger fields that make the
+ * field conditionally required.
+ *
+ * <p>{@code dependsOn} entries are dot-paths from the request body root. The
+ * field is only required when at least one of them is present; an empty list
+ * means unconditionally required.
  */
-public record FieldDescriptor(FieldType type, boolean nullable, List<Object> enumValues) {
+public record FieldDescriptor(FieldType type,
+                              boolean nullable,
+                              List<Object> enumValues,
+                              List<String> dependsOn) {
 
     public FieldDescriptor {
         Objects.requireNonNull(type, "type");
         enumValues = enumValues == null ? List.of() : List.copyOf(enumValues);
+        dependsOn = dependsOn == null ? List.of() : List.copyOf(dependsOn);
+    }
+
+    public FieldDescriptor(FieldType type, boolean nullable, List<Object> enumValues) {
+        this(type, nullable, enumValues, List.of());
     }
 
     public static FieldDescriptor of(FieldType type) {
-        return new FieldDescriptor(type, false, List.of());
+        return new FieldDescriptor(type, false, List.of(), List.of());
     }
 
     public boolean hasEnum() {
         return !enumValues.isEmpty();
+    }
+
+    public boolean isConditional() {
+        return !dependsOn.isEmpty();
     }
 }

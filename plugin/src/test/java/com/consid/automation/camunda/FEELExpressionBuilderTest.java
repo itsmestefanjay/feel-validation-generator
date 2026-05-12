@@ -158,6 +158,34 @@ class FEELExpressionBuilderTest {
     }
 
     @Test
+    void test_conditional_required_does_wrap_body_with_trigger_check_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, false, List.of(), List.of("req.shippingAddress"));
+
+        // when
+        String result = builder.build("shippingCarrier", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "req.shippingAddress!=null and ("
+                + "shippingCarrier=null or not(shippingCarrier instance of string) or is blank(shippingCarrier))");
+    }
+
+    @Test
+    void test_conditional_required_with_multiple_triggers_does_or_them_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, false, List.of(), List.of("req.a", "req.b"));
+
+        // when
+        String result = builder.build("c", descriptor);
+
+        // then
+        assertThat(result).startsWith("(req.a!=null or req.b!=null) and (");
+    }
+
+    @Test
     void test_nullable_unknown_does_never_fail_as_expected() {
         // given
         FieldDescriptor descriptor = new FieldDescriptor(FieldType.UNKNOWN, true, List.of());

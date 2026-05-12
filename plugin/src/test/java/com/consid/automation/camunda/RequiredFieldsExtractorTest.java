@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -153,6 +154,64 @@ class RequiredFieldsExtractorTest {
 
         // then
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void test_extract_dependent_required_does_mark_field_as_conditional_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>();
+        schema.addProperty("shippingAddress", new Schema<>().type("object"));
+        schema.addProperty("shippingCarrier", new Schema<>().type("string"));
+        schema.setDependentRequired(Map.of("shippingAddress", List.of("shippingCarrier")));
+
+        // when
+        Map<String, FieldDescriptor> result = extractor.extract(schema);
+
+        // then
+        FieldDescriptor carrier = result.get("shippingCarrier");
+        assertThat(carrier).isNotNull();
+        assertThat(carrier.type()).isEqualTo(FieldType.STRING);
+        assertThat(carrier.isConditional()).isTrue();
+        assertThat(carrier.dependsOn()).containsExactly("shippingAddress");
+    }
+
+    @Test
+    void test_extract_dependent_required_does_not_downgrade_unconditional_required_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>();
+        schema.setRequired(List.of("shippingCarrier"));
+        schema.addProperty("shippingAddress", new Schema<>().type("object"));
+        schema.addProperty("shippingCarrier", new Schema<>().type("string"));
+        schema.setDependentRequired(Map.of("shippingAddress", List.of("shippingCarrier")));
+
+        // when
+        Map<String, FieldDescriptor> result = extractor.extract(schema);
+
+        // then
+        assertThat(result.get("shippingCarrier").isConditional())
+            .as("Field already required unconditionally should not become conditional")
+            .isFalse();
+    }
+
+    @Test
+    void test_extract_dependent_required_does_or_merge_multiple_triggers_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>();
+        schema.addProperty("a", new Schema<>().type("string"));
+        schema.addProperty("b", new Schema<>().type("string"));
+        schema.addProperty("c", new Schema<>().type("string"));
+        schema.setDependentRequired(Map.of(
+            "a", List.of("c"),
+            "b", List.of("c")
+        ));
+
+        // when
+        Map<String, FieldDescriptor> result = extractor.extract(schema);
+
+        // then
+        assertThat(result.get("c").dependsOn())
+            .as("c should be triggered by either a or b being present")
+            .containsExactlyInAnyOrder("a", "b");
     }
 
     @Test
