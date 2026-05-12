@@ -130,6 +130,40 @@ class FEELExpressionBuilderTest {
     }
 
     @Test
+    void test_nullable_string_expression_does_use_is_present_check_as_expected() {
+        FieldDescriptor descriptor = new FieldDescriptor(FieldType.STRING, true, List.of());
+
+        String result = builder.build("nickname", descriptor);
+
+        assertThat(result)
+            .as("Nullable fields should allow null and only validate when present")
+            .isEqualTo("nickname!=null and (not(nickname instance of string) or is blank(nickname))");
+    }
+
+    @Test
+    void test_nullable_with_enum_does_combine_checks_as_expected() {
+        FieldDescriptor descriptor = new FieldDescriptor(FieldType.STRING, true, List.of("a", "b"));
+
+        String result = builder.build("status", descriptor);
+
+        assertThat(result)
+            .as("Nullable enum should enforce enum membership only when value is present")
+            .isEqualTo("status!=null and (not(status instance of string) or is blank(status) "
+                + "or not(status in (\"a\", \"b\")))");
+    }
+
+    @Test
+    void test_nullable_unknown_does_never_fail_as_expected() {
+        FieldDescriptor descriptor = new FieldDescriptor(FieldType.UNKNOWN, true, List.of());
+
+        String result = builder.build("anything", descriptor);
+
+        assertThat(result)
+            .as("A nullable field with no detectable constraints is never invalid")
+            .isEqualTo("false");
+    }
+
+    @Test
     void test_nested_field_expression_does_generate_as_expected() {
         String result = builder.build("user.email", FieldDescriptor.of(FieldType.STRING));
 

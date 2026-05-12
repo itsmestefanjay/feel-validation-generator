@@ -6,6 +6,7 @@ import io.swagger.v3.oas.models.media.Schema;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Determines the type of a field from an OpenAPI schema.
@@ -33,11 +34,45 @@ public class FieldTypeResolver {
             return FieldDescriptor.of(FieldType.UNKNOWN);
         }
 
-        FieldType type = mapTypeToFieldType(resolved.getType(), resolved);
+        FieldType type = mapTypeToFieldType(primaryType(resolved), resolved);
+        boolean nullable = isNullable(resolved);
         List<Object> enumValues = resolved.getEnum() == null
             ? List.of()
             : List.copyOf(resolved.getEnum());
-        return new FieldDescriptor(type, false, enumValues);
+        return new FieldDescriptor(type, nullable, enumValues);
+    }
+
+    /**
+     * Returns the schema's primary type, preferring OpenAPI 3.0's single
+     * {@code type} but falling back to the first non-"null" entry from
+     * OpenAPI 3.1's {@code types} array.
+     */
+    private String primaryType(Schema<?> schema) {
+        String singleType = schema.getType();
+        if (singleType != null) {
+            return singleType;
+        }
+        Set<String> types = schema.getTypes();
+        if (types == null) {
+            return null;
+        }
+        for (String candidate : types) {
+            if (candidate != null && !"null".equalsIgnoreCase(candidate)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private boolean isNullable(Schema<?> schema) {
+        if (Boolean.TRUE.equals(schema.getNullable())) {
+            return true;
+        }
+        Set<String> types = schema.getTypes();
+        if (types == null) {
+            return false;
+        }
+        return types.stream().anyMatch(t -> "null".equalsIgnoreCase(t));
     }
 
     /**

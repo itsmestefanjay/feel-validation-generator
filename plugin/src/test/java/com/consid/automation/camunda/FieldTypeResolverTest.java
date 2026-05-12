@@ -219,6 +219,44 @@ class FieldTypeResolverTest {
     }
 
     @Test
+    void test_resolve_openapi_3_0_nullable_does_set_flag_as_expected() {
+        resolver = new FieldTypeResolver(openAPI);
+        Schema<?> schema = new Schema<>().type("string");
+        schema.setNullable(Boolean.TRUE);
+
+        FieldDescriptor result = resolver.resolve(schema);
+
+        assertThat(result.nullable()).as("nullable: true should produce nullable descriptor").isTrue();
+        assertThat(result.type()).as("Type should still be STRING").isEqualTo(FieldType.STRING);
+    }
+
+    @Test
+    void test_resolve_openapi_3_1_type_array_with_null_does_set_flag_as_expected() {
+        resolver = new FieldTypeResolver(openAPI);
+        Schema<?> schema = new Schema<>();
+        schema.setTypes(new java.util.LinkedHashSet<>(Arrays.asList("string", "null")));
+
+        FieldDescriptor result = resolver.resolve(schema);
+
+        assertThat(result.nullable())
+            .as("type: [string, null] should produce a nullable descriptor")
+            .isTrue();
+        assertThat(result.type())
+            .as("Primary type should be picked from the non-null entry")
+            .isEqualTo(FieldType.STRING);
+    }
+
+    @Test
+    void test_resolve_does_default_to_non_nullable_as_expected() {
+        resolver = new FieldTypeResolver(openAPI);
+        Schema<?> schema = new Schema<>().type("string");
+
+        FieldDescriptor result = resolver.resolve(schema);
+
+        assertThat(result.nullable()).as("Schema without explicit nullable should default to false").isFalse();
+    }
+
+    @Test
     void test_resolve_null_reference_does_return_null_as_expected() {
         resolver = new FieldTypeResolver(openAPI);
 
