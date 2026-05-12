@@ -90,8 +90,29 @@ Additional constraints applied on top of the type check:
 
 - **`enum`** — appends `or not(X in (…))` with quoted strings, bare numbers, bare booleans.
 - **`nullable: true`** (OpenAPI 3.0) and **`type: […, "null"]`** (OpenAPI 3.1) — switch from required-form to `X!=null and (…)`.
+- **`dependentRequired`** — wraps the rule in `req.<trigger>!=null and (…)`, so the field is only required when its trigger field is present. Multiple triggers OR-merge: `(req.a!=null or req.b!=null) and (…)`. A field listed in both `required` and `dependentRequired` keeps the unconditional requirement.
 
 Compositions (`allOf` / `oneOf` / `anyOf`) and `$ref` are resolved. Shared component schemas referenced from multiple paths are expanded at every reference. A `$ref` that can't be resolved fails the build.
+
+Example `dependentRequired` shape:
+
+```yaml
+properties:
+  shippingAddress: { type: object }
+  shippingCarrier: { type: string }
+dependentRequired:
+  shippingAddress: [shippingCarrier]
+```
+
+Generates:
+
+```feel
+{ id: "shippingCarrier-invalid",
+  invalid: req.shippingAddress!=null and (
+    req.shippingCarrier=null
+    or not(req.shippingCarrier instance of string)
+    or is blank(req.shippingCarrier)) }
+```
 
 ## Output modes
 
