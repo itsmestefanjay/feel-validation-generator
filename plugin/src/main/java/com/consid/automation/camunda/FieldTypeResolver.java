@@ -3,6 +3,7 @@ package com.consid.automation.camunda;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.media.Schema;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -33,7 +34,10 @@ public class FieldTypeResolver {
         }
 
         FieldType type = mapTypeToFieldType(resolved.getType(), resolved);
-        return FieldDescriptor.of(type);
+        List<Object> enumValues = resolved.getEnum() == null
+            ? List.of()
+            : List.copyOf(resolved.getEnum());
+        return new FieldDescriptor(type, false, enumValues);
     }
 
     /**

@@ -194,6 +194,31 @@ class FieldTypeResolverTest {
     }
 
     @Test
+    void test_resolve_enum_does_capture_values_as_expected() {
+        resolver = new FieldTypeResolver(openAPI);
+        Schema<String> schema = new Schema<>();
+        schema.type("string");
+        schema.setEnum(Arrays.asList("red", "green", "blue"));
+
+        FieldDescriptor result = resolver.resolve(schema);
+
+        assertThat(result.type()).as("Type should still be STRING").isEqualTo(FieldType.STRING);
+        assertThat(result.enumValues())
+            .as("Enum values should be exposed via the descriptor")
+            .containsExactly("red", "green", "blue");
+    }
+
+    @Test
+    void test_resolve_does_return_empty_enum_when_schema_has_none_as_expected() {
+        resolver = new FieldTypeResolver(openAPI);
+        Schema<?> schema = new Schema<>().type("string");
+
+        FieldDescriptor result = resolver.resolve(schema);
+
+        assertThat(result.hasEnum()).as("Schema without enum should produce hasEnum() = false").isFalse();
+    }
+
+    @Test
     void test_resolve_null_reference_does_return_null_as_expected() {
         resolver = new FieldTypeResolver(openAPI);
 

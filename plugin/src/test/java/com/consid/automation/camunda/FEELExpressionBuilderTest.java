@@ -2,6 +2,7 @@ package com.consid.automation.camunda;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -83,6 +84,40 @@ class FEELExpressionBuilderTest {
         assertThat(result)
                 .as("Time expression should validate for null and unparseable time")
                 .isEqualTo("startTime=null or time(startTime)=null");
+    }
+
+    @Test
+    void test_string_enum_expression_does_append_in_check_as_expected() {
+        FieldDescriptor descriptor = new FieldDescriptor(FieldType.STRING, false, List.of("red", "green", "blue"));
+
+        String result = builder.build("color", descriptor);
+
+        assertThat(result)
+            .as("Enum check should be appended after the type check")
+            .isEqualTo("color=null or not(color instance of string) or is blank(color)"
+                + " or not(color in (\"red\", \"green\", \"blue\"))");
+    }
+
+    @Test
+    void test_number_enum_expression_does_render_numeric_literals_as_expected() {
+        FieldDescriptor descriptor = new FieldDescriptor(FieldType.NUMBER, false, List.of(1, 2, 3));
+
+        String result = builder.build("rank", descriptor);
+
+        assertThat(result)
+            .as("Numeric enum values should be rendered unquoted")
+            .endsWith("or not(rank in (1, 2, 3))");
+    }
+
+    @Test
+    void test_string_enum_with_quotes_does_escape_as_expected() {
+        FieldDescriptor descriptor = new FieldDescriptor(FieldType.STRING, false, List.of("say \"hi\""));
+
+        String result = builder.build("greeting", descriptor);
+
+        assertThat(result)
+            .as("Embedded double quotes in enum strings should be escaped")
+            .endsWith("or not(greeting in (\"say \\\"hi\\\"\"))");
     }
 
     @Test

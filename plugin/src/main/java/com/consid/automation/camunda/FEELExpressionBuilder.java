@@ -1,15 +1,18 @@
 package com.consid.automation.camunda;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 /**
  * Generates FEEL expressions for validating fields.
  */
 public class FEELExpressionBuilder {
 
     /**
-     * Generates a FEEL expression for validating a field based on its type.
+     * Generates a FEEL expression for validating a field based on its descriptor.
      */
     public String build(String fieldName, FieldDescriptor descriptor) {
-        return switch (descriptor.type()) {
+        String typeCheck = switch (descriptor.type()) {
             case STRING -> buildStringExpression(fieldName);
             case NUMBER -> buildNumberExpression(fieldName);
             case BOOLEAN -> buildBooleanExpression(fieldName);
@@ -20,6 +23,26 @@ public class FEELExpressionBuilder {
             case TIME -> buildTimeExpression(fieldName);
             case UNKNOWN -> buildUnknownExpression(fieldName);
         };
+        if (!descriptor.hasEnum()) {
+            return typeCheck;
+        }
+        return typeCheck + " or not(" + fieldName + " in (" + renderEnumValues(descriptor.enumValues()) + "))";
+    }
+
+    private String renderEnumValues(List<Object> enumValues) {
+        return enumValues.stream()
+            .map(FEELExpressionBuilder::renderEnumValue)
+            .collect(Collectors.joining(", "));
+    }
+
+    private static String renderEnumValue(Object value) {
+        if (value == null) {
+            return "null";
+        }
+        if (value instanceof Boolean || value instanceof Number) {
+            return value.toString();
+        }
+        return "\"" + value.toString().replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 
     private String buildStringExpression(String fieldName) {
