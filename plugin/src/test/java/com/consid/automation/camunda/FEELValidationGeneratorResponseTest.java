@@ -13,6 +13,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests covering response-expression generation.
+ * Asserts the FEEL engine's response context against a known-good snapshot
+ * body, isolating the test from FEEL output formatting.
  */
 public class FEELValidationGeneratorResponseTest extends AbstractFEELValidationGeneratorIntegrationTest {
 
@@ -46,26 +48,26 @@ public class FEELValidationGeneratorResponseTest extends AbstractFEELValidationG
                                      String payloadResource,
                                      String expectedBodyResource,
                                      boolean expectedValid) throws IOException {
+        // given
         Path specFile = resolveResourcePath(openApiResource);
         Path outputFile = tempDir.resolve(scenarioId + ".feel");
-
         var generator = FEELValidationGenerator.builder()
             .withOpenApiPath(specFile.toAbsolutePath())
             .withOutputFilePath(outputFile.toAbsolutePath())
             .withResponse(true)
             .build();
-
-        generator.generate();
-
-        String actualOutput = Files.readString(outputFile).stripTrailing();
-        Map<String, Object> payload = loadJsonResource(payloadResource);
+        Map<String, Object> context = buildEvaluationContext(loadJsonResource(payloadResource));
         Map<String, Object> expectedBody = loadJsonResource(expectedBodyResource);
-        Map<String, Object> context = buildEvaluationContext(payload);
+
+        // when
+        generator.generate();
+        String actualOutput = Files.readString(outputFile).stripTrailing();
         List<String> expressions = extractFeelExpressions(actualOutput);
+
+        // then
         assertThat(expressions)
             .as("FEEL expressions should exist for %s", scenarioId)
             .isNotEmpty();
-
         for (String expression : expressions) {
             var evaluation = FEEL_ENGINE.evalExpression(expression, context);
             assertThat(evaluation.isRight())
@@ -74,26 +76,21 @@ public class FEELValidationGeneratorResponseTest extends AbstractFEELValidationG
                 .isTrue();
 
             Map<String, Object> feelContext = toJavaMap(evaluation.getOrElse(null));
-            Boolean valid = (Boolean) feelContext.get("isValid");
-            assertThat(valid)
-                .as("Response validity should be %s for %s", expectedValid, scenarioId)
+            assertThat((Boolean) feelContext.get("isValid"))
+                .as("Response validity for %s", scenarioId)
                 .isEqualTo(expectedValid);
-
-            Object status = feelContext.get("statusCode");
-            int statusCode = status instanceof Number number
-                ? number.intValue()
-                : Integer.parseInt(status.toString());
-            assertThat(statusCode)
-                .as("Status code should reflect validity for %s", scenarioId)
+            assertThat(intStatus(feelContext.get("statusCode")))
+                .as("Status code for %s", scenarioId)
                 .isEqualTo(expectedValid ? 201 : 400);
-
-            Map<String, Object> actualBody = castToMap(normalizeValue(feelContext.get("body")));
-            Map<String, Object> normalizedExpected = castToMap(normalizeValue(expectedBody));
-            assertThat(actualBody)
-                .as("Response body should match expected snapshot for %s", scenarioId)
+            assertThat(castToMap(normalizeValue(feelContext.get("body"))))
+                .as("Response body for %s", scenarioId)
                 .usingRecursiveComparison()
                 .withComparatorForType(NUMBER_COMPARATOR, Number.class)
-                .isEqualTo(normalizedExpected);
+                .isEqualTo(castToMap(normalizeValue(expectedBody)));
         }
+    }
+
+    private static int intStatus(Object status) {
+        return status instanceof Number number ? number.intValue() : Integer.parseInt(status.toString());
     }
 }

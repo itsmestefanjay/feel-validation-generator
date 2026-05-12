@@ -8,15 +8,17 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-
 class FEELRuleGeneratorTest {
 
     @Test
     void test_create_rule_does_generate_field_rule_as_expected() {
+        // given
         FEELRuleGenerator generator = new FEELRuleGenerator(false);
 
+        // when
         ValidationRule rule = generator.createRule("user.name", FieldDescriptor.of(FieldType.STRING));
 
+        // then
         assertThat(rule.id()).isEqualTo("user.name-invalid");
         assertThat(rule.invalidExpression())
             .contains("req.user.name=null")
@@ -26,6 +28,7 @@ class FEELRuleGeneratorTest {
 
     @Test
     void test_render_basic_format_does_emit_activation_expression_as_expected() {
+        // given
         FEELRuleGenerator generator = new FEELRuleGenerator(false);
         Map<String, List<ValidationRule>> rulesByEndpoint = new HashMap<>();
         rulesByEndpoint.put(
@@ -36,8 +39,10 @@ class FEELRuleGeneratorTest {
             )
         );
 
+        // when
         String output = generator.render(rulesByEndpoint);
 
+        // then
         assertThat(output)
             .contains("# POST /users")
             .contains("req: request.body")
@@ -49,6 +54,7 @@ class FEELRuleGeneratorTest {
 
     @Test
     void test_render_response_format_does_emit_response_payload_as_expected() {
+        // given
         FEELRuleGenerator generator = new FEELRuleGenerator(true);
         Map<String, List<ValidationRule>> rulesByEndpoint = new HashMap<>();
         rulesByEndpoint.put(
@@ -56,8 +62,10 @@ class FEELRuleGeneratorTest {
             List.of(ValidationRule.create("user-invalid", "req.user=null", "user"))
         );
 
+        // when
         String output = generator.render(rulesByEndpoint);
 
+        // then
         assertThat(output)
             .contains("# POST /users")
             .contains("field: \"user\"")
@@ -68,13 +76,16 @@ class FEELRuleGeneratorTest {
 
     @Test
     void test_render_does_include_multiple_endpoints_as_expected() {
+        // given
         FEELRuleGenerator generator = new FEELRuleGenerator(false);
         Map<String, List<ValidationRule>> rulesByEndpoint = new HashMap<>();
         rulesByEndpoint.put("# POST /one", List.of(ValidationRule.create("a", "req.a=null", "a")));
         rulesByEndpoint.put("# PUT /two", List.of(ValidationRule.create("b", "req.b=null", "b")));
 
+        // when
         String output = generator.render(rulesByEndpoint);
 
+        // then
         assertThat(output)
             .contains("# POST /one")
             .contains("# PUT /two");
@@ -82,12 +93,15 @@ class FEELRuleGeneratorTest {
 
     @Test
     void test_render_does_handle_empty_rules_as_expected() {
+        // given
         FEELRuleGenerator generator = new FEELRuleGenerator(false);
         Map<String, List<ValidationRule>> rulesByEndpoint = new HashMap<>();
         rulesByEndpoint.put("# GET /empty", List.of());
 
+        // when
         String output = generator.render(rulesByEndpoint);
 
+        // then
         assertThat(output)
             .contains("rules: [")
             .contains("]");

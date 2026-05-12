@@ -67,7 +67,7 @@ class FieldTypeResolverTest {
 
     @Test
     void test_resolve_null_schema_does_return_unknown_as_expected() {
-        // given // when
+        // when
         FieldDescriptor result = resolver.resolve(null);
 
         // then
@@ -118,7 +118,7 @@ class FieldTypeResolverTest {
 
     @Test
     void test_resolve_null_reference_does_return_null_as_expected() {
-        // given // when
+        // when
         Schema<?> resolved = resolver.resolveSchemaReference(null);
 
         // then
