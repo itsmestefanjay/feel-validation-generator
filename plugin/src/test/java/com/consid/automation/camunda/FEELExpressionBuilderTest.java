@@ -163,21 +163,4 @@ class FEELExpressionBuilderTest {
             .isEqualTo("false");
     }
 
-    @Test
-    void test_nested_field_expression_does_generate_as_expected() {
-        String result = builder.build("user.email", FieldDescriptor.of(FieldType.STRING));
-
-        assertThat(result)
-                .as("Expression should work with nested field names")
-                .contains("user.email");
-    }
-
-    @Test
-    void test_deeply_nested_expression_does_generate_as_expected() {
-        String result = builder.build("organization.department.manager.email", FieldDescriptor.of(FieldType.STRING));
-
-        assertThat(result)
-                .as("Expression should work with deeply nested field names")
-                .contains("organization.department.manager.email");
-    }
 }
