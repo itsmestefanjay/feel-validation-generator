@@ -1,6 +1,5 @@
-package com.consid.bpm.camunda;
+package com.consid.automation.camunda;
 
-import com.consid.automation.camunda.FEELValidationGenerator;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

@@ -1,4 +1,4 @@
-package com.consid.bpm.camunda;
+package com.consid.automation.camunda;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

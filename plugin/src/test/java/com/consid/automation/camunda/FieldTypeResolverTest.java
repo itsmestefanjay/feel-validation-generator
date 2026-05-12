@@ -1,12 +1,10 @@
-package com.consid.bpm.camunda;
+package com.consid.automation.camunda;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.consid.automation.camunda.FieldType;
-import com.consid.automation.camunda.FieldTypeResolver;
 
 import java.util.Arrays;
 

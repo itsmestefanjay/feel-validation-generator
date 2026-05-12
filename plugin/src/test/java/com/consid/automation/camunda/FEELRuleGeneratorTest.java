@@ -1,4 +1,4 @@
-package com.consid.bpm.camunda;
+package com.consid.automation.camunda;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -8,9 +8,6 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import com.consid.automation.camunda.FieldType;
-import com.consid.automation.camunda.ValidationRule;
-import com.consid.automation.camunda.FEELRuleGenerator;
 
 class FEELRuleGeneratorTest {
 

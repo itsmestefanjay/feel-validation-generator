@@ -1,4 +1,4 @@
-package com.consid.bpm.camunda;
+package com.consid.automation.camunda;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -7,7 +7,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import com.consid.automation.camunda.FEELValidationGeneratorMojo;
 
 import java.io.IOException;
 import java.io.InputStream;

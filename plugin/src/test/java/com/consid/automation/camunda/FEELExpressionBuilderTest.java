@@ -1,9 +1,7 @@
-package com.consid.bpm.camunda;
+package com.consid.automation.camunda;
 
 import org.junit.jupiter.api.Test;
 
-import com.consid.automation.camunda.FieldType;
-import com.consid.automation.camunda.FEELExpressionBuilder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

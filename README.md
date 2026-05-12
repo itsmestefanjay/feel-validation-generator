@@ -41,7 +41,7 @@ emits the validation logic for you.
 <build>
   <plugins>
     <plugin>
-      <groupId>com.consid.bpm.camunda</groupId>
+      <groupId>com.consid.automation.camunda</groupId>
       <artifactId>feel-validation-generator</artifactId>
       <version>1.0.0</version>
       <executions>
@@ -64,7 +64,7 @@ emits the validation logic for you.
 Or run it directly:
 
 ```bash
-mvn com.consid.bpm.camunda:feel-validation-generator:1.0.0:generate-feel \
+mvn com.consid.automation.camunda:feel-validation-generator:1.0.0:generate-feel \
   -DfeelValidationGenerator.openApiSpec=src/main/resources/openapi.yaml \
   -DfeelValidationGenerator.outputFile=target/validation.feel
 ```

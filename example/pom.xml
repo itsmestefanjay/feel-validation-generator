@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.consid.bpm.camunda</groupId>
+        <groupId>com.consid.automation.camunda</groupId>
         <artifactId>feel-validation-generator-parent</artifactId>
         <version>1.0.0</version>
     </parent>
@@ -18,7 +18,7 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>com.consid.bpm.camunda</groupId>
+                <groupId>com.consid.automation.camunda</groupId>
                 <artifactId>feel-validation-generator</artifactId>
                 <version>${project.version}</version>
                 <executions>
