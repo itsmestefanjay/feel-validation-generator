@@ -32,9 +32,9 @@ public class FEELExpressionBuilder {
     private String typeViolation(String fieldName, FieldType type) {
         return switch (type) {
             case STRING -> "not(" + fieldName + " instance of string) or is blank(" + fieldName + ")";
-            case NUMBER -> "number(" + fieldName + ")=null";
+            case NUMBER -> "not(" + fieldName + " instance of number)";
             case BOOLEAN -> "not(" + fieldName + " instance of boolean)";
-            case ARRAY -> "is empty(" + fieldName + ")";
+            case ARRAY -> "not(" + fieldName + " instance of list) or is empty(" + fieldName + ")";
             case OBJECT -> "not(" + fieldName + " instance of context)";
             case DATE -> "date(" + fieldName + ")=null";
             case DATE_TIME -> "date and time(" + fieldName + ")=null";

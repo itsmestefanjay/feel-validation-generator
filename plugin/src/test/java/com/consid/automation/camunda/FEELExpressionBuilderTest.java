@@ -26,7 +26,7 @@ class FEELExpressionBuilderTest {
         String result = builder.build("age", FieldDescriptor.of(FieldType.NUMBER));
 
         // then
-        assertThat(result).isEqualTo("age=null or number(age)=null");
+        assertThat(result).isEqualTo("age=null or not(age instance of number)");
     }
 
     @Test
@@ -44,7 +44,7 @@ class FEELExpressionBuilderTest {
         String result = builder.build("tags", FieldDescriptor.of(FieldType.ARRAY));
 
         // then
-        assertThat(result).isEqualTo("tags=null or is empty(tags)");
+        assertThat(result).isEqualTo("tags=null or not(tags instance of list) or is empty(tags)");
     }
 
     @Test
