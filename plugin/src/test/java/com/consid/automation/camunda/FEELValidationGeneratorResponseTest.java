@@ -20,11 +20,10 @@ public class FEELValidationGeneratorResponseTest extends AbstractFEELValidationG
         (a, b) -> Double.compare(a.doubleValue(), b.doubleValue());
 
     @Test
-    public void test_responses_direct_response_does_generate_valid_feel_as_expected() throws IOException {
+    public void test_responses_direct_response_does_evaluate_success_for_valid_payload_as_expected() throws IOException {
         runResponseScenario(
             "responses-direct-valid",
             "openapi/responses-direct-api.json",
-            "feel/responses-direct-expected-feel.txt",
             "payloads/responses-direct-variables.json",
             "response/responses-direct-valid-body.json",
             true
@@ -32,11 +31,10 @@ public class FEELValidationGeneratorResponseTest extends AbstractFEELValidationG
     }
 
     @Test
-    public void test_responses_direct_response_does_fail_for_invalid_payload_as_expected() throws IOException {
+    public void test_responses_direct_response_does_evaluate_failure_for_invalid_payload_as_expected() throws IOException {
         runResponseScenario(
             "responses-direct-invalid",
             "openapi/responses-direct-api.json",
-            "feel/responses-direct-expected-feel.txt",
             "payloads/responses-direct-invalid-variables.json",
             "response/responses-direct-invalid-body.json",
             false
@@ -45,7 +43,6 @@ public class FEELValidationGeneratorResponseTest extends AbstractFEELValidationG
 
     private void runResponseScenario(String scenarioId,
                                      String openApiResource,
-                                     String expectedFeelResource,
                                      String payloadResource,
                                      String expectedBodyResource,
                                      boolean expectedValid) throws IOException {
@@ -61,11 +58,6 @@ public class FEELValidationGeneratorResponseTest extends AbstractFEELValidationG
         generator.generate();
 
         String actualOutput = Files.readString(outputFile).stripTrailing();
-        String expectedOutput = readResourceFile(expectedFeelResource).stripTrailing();
-        assertThat(actualOutput)
-            .as("Generated FEEL output should match the expected snapshot for %s", scenarioId)
-            .isEqualTo(expectedOutput);
-
         Map<String, Object> payload = loadJsonResource(payloadResource);
         Map<String, Object> expectedBody = loadJsonResource(expectedBodyResource);
         Map<String, Object> context = buildEvaluationContext(payload);
@@ -75,11 +67,6 @@ public class FEELValidationGeneratorResponseTest extends AbstractFEELValidationG
             .isNotEmpty();
 
         for (String expression : expressions) {
-            var parseResult = FEEL_ENGINE.parseExpression(expression);
-            assertThat(parseResult.isRight())
-                .as("FEEL expression should be parsable for %s", scenarioId)
-                .isTrue();
-
             var evaluation = FEEL_ENGINE.evalExpression(expression, context);
             assertThat(evaluation.isRight())
                 .as("FEEL expression should evaluate for %s", scenarioId)

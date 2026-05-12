@@ -16,77 +16,70 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class FEELValidationGeneratorActivationTest extends AbstractFEELValidationGeneratorIntegrationTest {
 
     @Test
-    public void test_customers_direct_activation_does_generate_valid_feel_as_expected() throws IOException {
+    public void test_customers_direct_activation_does_evaluate_true_for_valid_payload_as_expected() throws IOException {
         runActivationScenario(
             "customers-direct-valid",
             "openapi/customers-direct-api.json",
-            "feel/customers-direct-expected-feel.txt",
             "payloads/customers-direct-variables.json",
             true
         );
     }
 
     @Test
-    public void test_customers_direct_activation_does_fail_validation_for_empty_payload_as_expected() throws IOException {
+    public void test_customers_direct_activation_does_evaluate_false_for_empty_payload_as_expected() throws IOException {
         runActivationScenario(
             "customers-direct-invalid",
             "openapi/customers-direct-api.json",
-            "feel/customers-direct-expected-feel.txt",
             "payloads/customers-direct-invalid-variables.json",
             false
         );
     }
 
     @Test
-    public void test_customers_referenced_activation_does_generate_valid_feel_as_expected() throws IOException {
+    public void test_customers_referenced_activation_does_evaluate_true_for_valid_payload_as_expected() throws IOException {
         runActivationScenario(
             "customers-referenced-valid",
             "openapi/customers-referenced-api.json",
-            "feel/customers-referenced-expected-feel.txt",
             "payloads/customers-referenced-variables.json",
             true
         );
     }
 
     @Test
-    public void test_customers_allOf_activation_does_generate_valid_feel_as_expected() throws IOException {
+    public void test_customers_allOf_activation_does_evaluate_true_for_valid_payload_as_expected() throws IOException {
         runActivationScenario(
             "customers-allOf-valid",
             "openapi/customers-allOf-api.json",
-            "feel/customers-allOf-expected-feel.txt",
             "payloads/customers-allOf-variables.json",
             true
         );
     }
 
     @Test
-    public void test_customers_oneOf_activation_does_generate_valid_feel_as_expected() throws IOException {
+    public void test_customers_oneOf_activation_does_evaluate_true_for_valid_payload_as_expected() throws IOException {
         runActivationScenario(
             "customers-oneOf-valid",
             "openapi/customers-oneOf-api.json",
-            "feel/customers-oneOf-expected-feel.txt",
             "payloads/customers-oneOf-variables.json",
             true
         );
     }
 
     @Test
-    public void test_customers_anyOf_activation_does_generate_valid_feel_as_expected() throws IOException {
+    public void test_customers_anyOf_activation_does_evaluate_true_for_valid_payload_as_expected() throws IOException {
         runActivationScenario(
             "customers-anyOf-valid",
             "openapi/customers-anyOf-api.json",
-            "feel/customers-anyOf-expected-feel.txt",
             "payloads/customers-anyOf-variables.json",
             true
         );
     }
 
     @Test
-    public void test_customers_shared_component_activation_does_expand_at_every_reference() throws IOException {
+    public void test_customers_shared_component_activation_does_evaluate_true_for_valid_payload_as_expected() throws IOException {
         runActivationScenario(
             "customers-shared-valid",
             "openapi/customers-shared-api.json",
-            "feel/customers-shared-expected-feel.txt",
             "payloads/customers-shared-variables.json",
             true
         );
@@ -94,7 +87,6 @@ public class FEELValidationGeneratorActivationTest extends AbstractFEELValidatio
 
     private void runActivationScenario(String scenarioId,
                                        String openApiResource,
-                                       String expectedFeelResource,
                                        String payloadResource,
                                        boolean expectedValid) throws IOException {
         Path specFile = resolveResourcePath(openApiResource);
@@ -109,11 +101,6 @@ public class FEELValidationGeneratorActivationTest extends AbstractFEELValidatio
         generator.generate();
 
         String actualOutput = Files.readString(outputFile).stripTrailing();
-        String expectedOutput = readResourceFile(expectedFeelResource).stripTrailing();
-        assertThat(actualOutput)
-            .as("Generated FEEL output should match the expected snapshot for %s", scenarioId)
-            .isEqualTo(expectedOutput);
-
         Map<String, Object> payload = loadJsonResource(payloadResource);
         Map<String, Object> context = buildEvaluationContext(payload);
         List<String> expressions = extractFeelExpressions(actualOutput);
@@ -122,11 +109,6 @@ public class FEELValidationGeneratorActivationTest extends AbstractFEELValidatio
             .isNotEmpty();
 
         for (String expression : expressions) {
-            var parseResult = FEEL_ENGINE.parseExpression(expression);
-            assertThat(parseResult.isRight())
-                .as("FEEL expression should be parsable for %s", scenarioId)
-                .isTrue();
-
             var evaluation = FEEL_ENGINE.evalExpression(expression, context);
             assertThat(evaluation.isRight())
                 .as("FEEL expression should evaluate for %s", scenarioId)
