@@ -25,6 +25,7 @@ public class FEELValidationGenerator {
     private final String outputFilePath;
     private final ValidationRuleBuilder ruleBuilder;
     private final List<String> httpMethods;
+    private final String mediaType;
 
     private FEELValidationGenerator(Builder builder) {
         this.openApiSpecPath = builder.openApiSpecPath;
@@ -33,6 +34,7 @@ public class FEELValidationGenerator {
             ? builder.customRuleBuilder
             : new FEELRuleGenerator(builder.addResponse, builder.successStatusCode, builder.failureStatusCode);
         this.httpMethods = builder.httpMethods;
+        this.mediaType = builder.mediaType;
     }
 
     /**
@@ -133,15 +135,15 @@ public class FEELValidationGenerator {
      */
     private void processOperation(Operation operation, List<ValidationRule> rules,
                                  RequiredFieldsExtractor fieldsExtractor) {
-        if (operation.getRequestBody() == null || operation.getRequestBody().getContent() == null) {
+        var body = operation.getRequestBody();
+        if (body == null || body.getContent() == null) {
             return;
         }
-
-        operation.getRequestBody().getContent().forEach((mediaType, mediaTypeObj) -> {
-            if (mediaTypeObj.getSchema() != null) {
-                generateRulesForSchema(mediaTypeObj.getSchema(), rules, fieldsExtractor);
-            }
-        });
+        var mediaTypeObj = body.getContent().get(mediaType);
+        if (mediaTypeObj == null || mediaTypeObj.getSchema() == null) {
+            return;
+        }
+        generateRulesForSchema(mediaTypeObj.getSchema(), rules, fieldsExtractor);
     }
 
     /**
@@ -193,6 +195,7 @@ public class FEELValidationGenerator {
         private int successStatusCode = 201;
         private int failureStatusCode = 400;
         private List<String> httpMethods = List.of("POST", "PUT", "PATCH");
+        private String mediaType = "application/json";
         private ValidationRuleBuilder customRuleBuilder;
 
         private Builder() {
@@ -225,6 +228,11 @@ public class FEELValidationGenerator {
 
         public Builder withHttpMethods(List<String> httpMethods) {
             this.httpMethods = List.copyOf(Objects.requireNonNull(httpMethods, "httpMethods"));
+            return this;
+        }
+
+        public Builder withMediaType(String mediaType) {
+            this.mediaType = Objects.requireNonNull(mediaType, "mediaType");
             return this;
         }
 

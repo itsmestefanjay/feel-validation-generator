@@ -56,6 +56,13 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
     private String methods;
 
     /**
+     * Request body media type to read schemas from. Operations declaring multiple
+     * content types only contribute the schema matching this media type.
+     */
+    @Parameter(property = "feelValidationGenerator.mediaType", defaultValue = "application/json")
+    private String mediaType;
+
+    /**
      * Executes the FEEL validation generation logic.
      *
      * @throws MojoExecutionException if an unexpected error occurs
@@ -86,6 +93,7 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
                 .withSuccessStatusCode(successStatusCode)
                 .withFailStatusCode(failStatusCode)
                 .withHttpMethods(methodList)
+                .withMediaType(mediaType)
                 .build();
             generator.generate();
 

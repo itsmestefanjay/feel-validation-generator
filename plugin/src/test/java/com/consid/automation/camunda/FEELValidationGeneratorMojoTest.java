@@ -289,6 +289,10 @@ public class FEELValidationGeneratorMojoTest {
             var failField = FEELValidationGeneratorMojo.class.getDeclaredField("failStatusCode");
             failField.setAccessible(true);
             failField.set(mojo, 400);
+
+            var mediaTypeField = FEELValidationGeneratorMojo.class.getDeclaredField("mediaType");
+            mediaTypeField.setAccessible(true);
+            mediaTypeField.set(mojo, "application/json");
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new RuntimeException("Failed to set Mojo fields", e);
         }
