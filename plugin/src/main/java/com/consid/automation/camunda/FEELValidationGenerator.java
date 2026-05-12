@@ -224,7 +224,7 @@ public class FEELValidationGenerator {
         }
 
         public Builder withHttpMethods(List<String> httpMethods) {
-            this.httpMethods = httpMethods == null ? List.of() : List.copyOf(httpMethods);
+            this.httpMethods = List.copyOf(Objects.requireNonNull(httpMethods, "httpMethods"));
             return this;
         }
 
@@ -234,6 +234,11 @@ public class FEELValidationGenerator {
         }
 
         public FEELValidationGenerator build() {
+            Objects.requireNonNull(openApiSpecPath, "openApiSpecPath must be set via withOpenApiPath");
+            Objects.requireNonNull(outputFilePath, "outputFilePath must be set via withOutputFilePath");
+            if (httpMethods.isEmpty()) {
+                throw new IllegalArgumentException("at least one HTTP method must be configured");
+            }
             requireValidStatusCode(successStatusCode, "successStatusCode");
             requireValidStatusCode(failureStatusCode, "failStatusCode");
             return new FEELValidationGenerator(this);
