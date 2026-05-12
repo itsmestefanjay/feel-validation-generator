@@ -1,0 +1,42 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Conditional Required API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/customers/conditional": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "customerId"
+                ],
+                "properties": {
+                  "customerId": {
+                    "type": "string"
+                  },
+                  "shippingAddress": {
+                    "type": "string"
+                  },
+                  "shippingCarrier": {
+                    "type": "string"
+                  }
+                },
+                "dependentRequired": {
+                  "shippingAddress": [
+                    "shippingCarrier"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -92,6 +92,25 @@ class FEELRuleGeneratorTest {
     }
 
     @Test
+    void test_create_rule_for_conditional_descriptor_does_emit_guarded_invalid_expression_as_expected() {
+        // given
+        FEELRuleGenerator generator = new FEELRuleGenerator(false);
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, false, List.of(), List.of("shippingAddress"));
+
+        // when
+        ValidationRule rule = generator.createRule("shippingCarrier", descriptor);
+
+        // then
+        assertThat(rule.id()).isEqualTo("shippingCarrier-invalid");
+        assertThat(rule.invalidExpression()).isEqualTo(
+            "req.shippingAddress!=null and ("
+                + "req.shippingCarrier=null"
+                + " or not(req.shippingCarrier instance of string)"
+                + " or is blank(req.shippingCarrier))");
+    }
+
+    @Test
     void test_render_does_handle_empty_rules_as_expected() {
         // given
         FEELRuleGenerator generator = new FEELRuleGenerator(false);

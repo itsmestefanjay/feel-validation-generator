@@ -87,6 +87,26 @@ public class FEELValidationGeneratorActivationTest extends AbstractFEELValidatio
         );
     }
 
+    @Test
+    public void test_customers_conditional_activation_does_pass_when_trigger_field_is_absent_as_expected() throws IOException {
+        runActivationScenario(
+            "customers-conditional-no-shipping",
+            "openapi/customers-conditional-api.json",
+            "payloads/customers-conditional-no-shipping-variables.json",
+            true
+        );
+    }
+
+    @Test
+    public void test_customers_conditional_activation_does_fail_when_trigger_present_and_dependent_missing_as_expected() throws IOException {
+        runActivationScenario(
+            "customers-conditional-missing-carrier",
+            "openapi/customers-conditional-api.json",
+            "payloads/customers-conditional-missing-carrier-variables.json",
+            false
+        );
+    }
+
     private void runActivationScenario(String scenarioId,
                                        String openApiResource,
                                        String payloadResource,

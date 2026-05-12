@@ -90,6 +90,21 @@ class FieldTypeResolverTest {
     }
 
     @Test
+    void test_resolve_schema_without_type_but_with_required_does_imply_object_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>();
+        schema.setRequired(Arrays.asList("field1"));
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.type())
+            .as("A schema with only `required` should still resolve to OBJECT")
+            .isEqualTo(FieldType.OBJECT);
+    }
+
+    @Test
     void test_resolve_reference_does_follow_to_referenced_type_as_expected() {
         // given
         Schema<?> referenced = new Schema<>().type("boolean");

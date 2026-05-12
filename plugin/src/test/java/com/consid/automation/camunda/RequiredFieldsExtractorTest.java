@@ -215,6 +215,24 @@ class RequiredFieldsExtractorTest {
     }
 
     @Test
+    void test_extract_self_referential_schema_does_terminate_at_cycle_as_expected() {
+        // given — a node that references itself; without cycle detection this would recurse forever
+        Schema<?> node = new Schema<>();
+        node.type("object");
+        node.setRequired(List.of("value", "next"));
+        node.addProperty("value", new Schema<>().type("string"));
+        node.addProperty("next", node);
+
+        // when
+        Map<String, FieldDescriptor> result = extractor.extract(node);
+
+        // then
+        assertThat(result)
+            .as("Cycle detection should yield the top-level fields and stop before recursing into the self-reference")
+            .containsOnlyKeys("value", "next");
+    }
+
+    @Test
     void test_extract_shared_component_does_expand_at_every_reference_as_expected() {
         // given
         Schema<?> sharedAddress = new Schema<>();
