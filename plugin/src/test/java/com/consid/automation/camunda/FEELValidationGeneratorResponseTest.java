@@ -53,8 +53,8 @@ public class FEELValidationGeneratorResponseTest extends AbstractFEELValidationG
         Path outputFile = tempDir.resolve(scenarioId + ".feel");
 
         var generator = FEELValidationGenerator.builder()
-            .withOpenApiPath(specFile.toAbsolutePath().toString())
-            .withOutputFilePath(outputFile.toAbsolutePath().toString())
+            .withOpenApiPath(specFile.toAbsolutePath())
+            .withOutputFilePath(outputFile.toAbsolutePath())
             .withResponse(true)
             .build();
 

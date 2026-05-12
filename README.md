@@ -93,8 +93,8 @@ example.
 
 ```java
 FEELValidationGenerator generator = FEELValidationGenerator.builder()
-    .withOpenApiPath("src/main/resources/api.yaml")
-    .withOutputFilePath("target/validation.feel")
+    .withOpenApiPath(Path.of("src/main/resources/api.yaml"))
+    .withOutputFilePath(Path.of("target/validation.feel"))
     .withResponse(true)
     .withSuccessStatusCode(202)
     .withFailStatusCode(422)

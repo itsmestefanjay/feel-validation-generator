@@ -75,11 +75,11 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
             getLog().info("Input OpenAPI spec: " + openApiSpec);
             getLog().info("Output file: " + outputFile);
 
-            if (!Files.exists(Path.of(openApiSpec))) {
+            Path specPath = Path.of(openApiSpec);
+            if (!Files.exists(specPath)) {
                 throw new MojoFailureException("OpenAPI specification file not found: " + openApiSpec);
             }
 
-            // Execute the validation generation logic
             List<String> methodList = Arrays.stream(methods.split(","))
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
@@ -87,8 +87,8 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
                     .toList();
 
             FEELValidationGenerator generator = FEELValidationGenerator.builder()
-                .withOpenApiPath(openApiSpec)
-                .withOutputFilePath(outputFile)
+                .withOpenApiPath(specPath)
+                .withOutputFilePath(Path.of(outputFile))
                 .withResponse(addResponse)
                 .withSuccessStatusCode(successStatusCode)
                 .withFailStatusCode(failStatusCode)

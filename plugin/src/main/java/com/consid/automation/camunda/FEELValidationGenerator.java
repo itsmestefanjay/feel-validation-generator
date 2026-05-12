@@ -7,7 +7,7 @@ import io.swagger.v3.parser.OpenAPIV3Parser;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,8 +21,8 @@ import java.util.Objects;
  */
 public class FEELValidationGenerator {
 
-    private final String openApiSpecPath;
-    private final String outputFilePath;
+    private final Path openApiSpecPath;
+    private final Path outputFilePath;
     private final ValidationRuleBuilder ruleBuilder;
     private final List<String> httpMethods;
     private final String mediaType;
@@ -51,7 +51,7 @@ public class FEELValidationGenerator {
      */
     private OpenAPI parseOpenAPI() throws IOException {
         OpenAPIV3Parser parser = new OpenAPIV3Parser();
-        OpenAPI openAPI = parser.read(openApiSpecPath);
+        OpenAPI openAPI = parser.read(openApiSpecPath.toString());
 
         if (openAPI == null) {
             throw new IOException("Failed to parse OpenAPI specification: " + openApiSpecPath);
@@ -168,20 +168,11 @@ public class FEELValidationGenerator {
      */
     private void writeOutput(Map<String, List<ValidationRule>> rulesByEndpoint) throws IOException {
         String renderedOutput = ruleBuilder.render(rulesByEndpoint);
-        var outputPath = Paths.get(outputFilePath);
-        var parent = outputPath.getParent();
+        Path parent = outputFilePath.getParent();
         if (parent != null) {
             Files.createDirectories(parent);
         }
-        Files.writeString(outputPath, renderedOutput);
-    }
-
-    public String getOpenApiSpecPath() {
-        return openApiSpecPath;
-    }
-
-    public String getOutputFilePath() {
-        return outputFilePath;
+        Files.writeString(outputFilePath, renderedOutput);
     }
 
     public static Builder builder() {
@@ -189,8 +180,8 @@ public class FEELValidationGenerator {
     }
 
     public static final class Builder {
-        private String openApiSpecPath;
-        private String outputFilePath;
+        private Path openApiSpecPath;
+        private Path outputFilePath;
         private boolean addResponse = false;
         private int successStatusCode = 201;
         private int failureStatusCode = 400;
@@ -201,12 +192,12 @@ public class FEELValidationGenerator {
         private Builder() {
         }
 
-        public Builder withOpenApiPath(String openApiSpecPath) {
+        public Builder withOpenApiPath(Path openApiSpecPath) {
             this.openApiSpecPath = Objects.requireNonNull(openApiSpecPath, "openApiSpecPath");
             return this;
         }
 
-        public Builder withOutputFilePath(String outputFilePath) {
+        public Builder withOutputFilePath(Path outputFilePath) {
             this.outputFilePath = Objects.requireNonNull(outputFilePath, "outputFilePath");
             return this;
         }
