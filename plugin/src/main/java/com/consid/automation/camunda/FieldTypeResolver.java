@@ -45,12 +45,24 @@ public class FieldTypeResolver {
         }
 
         return switch (type.toLowerCase(Locale.ROOT)) {
-            case "string" -> FieldType.STRING;
+            case "string" -> stringSubtype(schema.getFormat());
             case "number", "integer" -> FieldType.NUMBER;
             case "boolean" -> FieldType.BOOLEAN;
             case "array" -> FieldType.ARRAY;
             case "object" -> FieldType.OBJECT;
             default -> FieldType.UNKNOWN;
+        };
+    }
+
+    private FieldType stringSubtype(String format) {
+        if (format == null) {
+            return FieldType.STRING;
+        }
+        return switch (format.toLowerCase(Locale.ROOT)) {
+            case "date" -> FieldType.DATE;
+            case "date-time" -> FieldType.DATE_TIME;
+            case "time" -> FieldType.TIME;
+            default -> FieldType.STRING;
         };
     }
 

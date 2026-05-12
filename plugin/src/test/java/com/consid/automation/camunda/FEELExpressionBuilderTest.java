@@ -59,6 +59,33 @@ class FEELExpressionBuilderTest {
     }
 
     @Test
+    void test_date_expression_does_build_as_expected() {
+        String result = builder.build("birthDate", FieldDescriptor.of(FieldType.DATE));
+
+        assertThat(result)
+                .as("Date expression should validate for null and unparseable date")
+                .isEqualTo("birthDate=null or date(birthDate)=null");
+    }
+
+    @Test
+    void test_date_time_expression_does_build_as_expected() {
+        String result = builder.build("createdAt", FieldDescriptor.of(FieldType.DATE_TIME));
+
+        assertThat(result)
+                .as("Date-time expression should validate for null and unparseable date-time")
+                .isEqualTo("createdAt=null or date and time(createdAt)=null");
+    }
+
+    @Test
+    void test_time_expression_does_build_as_expected() {
+        String result = builder.build("startTime", FieldDescriptor.of(FieldType.TIME));
+
+        assertThat(result)
+                .as("Time expression should validate for null and unparseable time")
+                .isEqualTo("startTime=null or time(startTime)=null");
+    }
+
+    @Test
     void test_unknown_expression_does_build_as_expected() {
         String result = builder.build("unknown", FieldDescriptor.of(FieldType.UNKNOWN));
 

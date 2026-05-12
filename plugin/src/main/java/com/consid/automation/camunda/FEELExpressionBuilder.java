@@ -15,6 +15,9 @@ public class FEELExpressionBuilder {
             case BOOLEAN -> buildBooleanExpression(fieldName);
             case ARRAY -> buildArrayExpression(fieldName);
             case OBJECT -> buildObjectExpression(fieldName);
+            case DATE -> buildDateExpression(fieldName);
+            case DATE_TIME -> buildDateTimeExpression(fieldName);
+            case TIME -> buildTimeExpression(fieldName);
             case UNKNOWN -> buildUnknownExpression(fieldName);
         };
     }
@@ -37,6 +40,18 @@ public class FEELExpressionBuilder {
 
     private String buildObjectExpression(String fieldName) {
         return fieldName + "=null or not(" + fieldName + " instance of context)";
+    }
+
+    private String buildDateExpression(String fieldName) {
+        return fieldName + "=null or date(" + fieldName + ")=null";
+    }
+
+    private String buildDateTimeExpression(String fieldName) {
+        return fieldName + "=null or date and time(" + fieldName + ")=null";
+    }
+
+    private String buildTimeExpression(String fieldName) {
+        return fieldName + "=null or time(" + fieldName + ")=null";
     }
 
     private String buildUnknownExpression(String fieldName) {

@@ -36,6 +36,48 @@ class FieldTypeResolverTest {
     }
 
     @Test
+    void test_resolve_string_with_date_format_does_return_date_as_expected() {
+        resolver = new FieldTypeResolver(openAPI);
+        Schema<?> schema = new Schema<>().type("string").format("date");
+
+        FieldDescriptor result = resolver.resolve(schema);
+
+        assertThat(result.type()).as("format: date should map to DATE").isEqualTo(FieldType.DATE);
+    }
+
+    @Test
+    void test_resolve_string_with_date_time_format_does_return_date_time_as_expected() {
+        resolver = new FieldTypeResolver(openAPI);
+        Schema<?> schema = new Schema<>().type("string").format("date-time");
+
+        FieldDescriptor result = resolver.resolve(schema);
+
+        assertThat(result.type()).as("format: date-time should map to DATE_TIME").isEqualTo(FieldType.DATE_TIME);
+    }
+
+    @Test
+    void test_resolve_string_with_time_format_does_return_time_as_expected() {
+        resolver = new FieldTypeResolver(openAPI);
+        Schema<?> schema = new Schema<>().type("string").format("time");
+
+        FieldDescriptor result = resolver.resolve(schema);
+
+        assertThat(result.type()).as("format: time should map to TIME").isEqualTo(FieldType.TIME);
+    }
+
+    @Test
+    void test_resolve_string_with_unrecognised_format_does_fall_back_to_string_as_expected() {
+        resolver = new FieldTypeResolver(openAPI);
+        Schema<?> schema = new Schema<>().type("string").format("uuid");
+
+        FieldDescriptor result = resolver.resolve(schema);
+
+        assertThat(result.type())
+            .as("Unknown string formats should still resolve to STRING, not UNKNOWN")
+            .isEqualTo(FieldType.STRING);
+    }
+
+    @Test
     void test_resolve_number_schema_does_return_number_as_expected() {
         resolver = new FieldTypeResolver(openAPI);
         Schema<?> schema = new Schema<>().type("number");
