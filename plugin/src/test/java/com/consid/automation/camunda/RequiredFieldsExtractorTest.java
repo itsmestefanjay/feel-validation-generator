@@ -182,6 +182,32 @@ class RequiredFieldsExtractorTest {
     }
 
     @Test
+    void test_extract_shared_component_does_expand_at_every_reference_as_expected() {
+        Schema<?> sharedAddress = new Schema<>();
+        sharedAddress.setRequired(Arrays.asList("city", "street"));
+        sharedAddress.addProperty("city", new Schema<>().type("string"));
+        sharedAddress.addProperty("street", new Schema<>().type("string"));
+
+        Schema<?> schema = new Schema<>();
+        schema.setRequired(Arrays.asList("billingAddress", "shippingAddress"));
+        schema.addProperty("billingAddress", sharedAddress);
+        schema.addProperty("shippingAddress", sharedAddress);
+
+        Map<String, FieldDescriptor> result = extractor.extract(schema);
+
+        assertThat(result)
+            .as("Same schema referenced from two siblings must be expanded at both paths")
+            .containsKeys(
+                "billingAddress",
+                "shippingAddress",
+                "billingAddress.city",
+                "billingAddress.street",
+                "shippingAddress.city",
+                "shippingAddress.street"
+            );
+    }
+
+    @Test
     void test_extract_deeply_nested_fields_does_include_all_paths_as_expected() {
         Schema<?> level3 = new Schema<>();
         level3.setRequired(Arrays.asList("value"));
