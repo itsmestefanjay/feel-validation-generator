@@ -1,13 +1,10 @@
-package com.consid.bpm.camunda;
+package com.consid.automation.camunda;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.consid.automation.camunda.FieldType;
-import com.consid.automation.camunda.FieldTypeResolver;
-import com.consid.automation.camunda.RequiredFieldsExtractor;
 
 import java.util.Map;
 import java.util.Arrays;
@@ -37,11 +34,11 @@ class RequiredFieldsExtractorTest {
         schema.setRequired(Arrays.asList("username"));
         schema.addProperty("username", new Schema<>().type("string"));
 
-        Map<String, FieldType> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema);
 
         assertThat(result)
                 .as("Should extract simple required field")
-                .containsEntry("username", FieldType.STRING);
+                .containsEntry("username", FieldDescriptor.of(FieldType.STRING));
     }
 
     @Test
@@ -51,12 +48,12 @@ class RequiredFieldsExtractorTest {
         schema.addProperty("username", new Schema<>().type("string"));
         schema.addProperty("email", new Schema<>().type("string"));
 
-        Map<String, FieldType> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema);
 
         assertThat(result)
                 .as("Should extract multiple required fields")
-                .containsEntry("username", FieldType.STRING)
-                .containsEntry("email", FieldType.STRING);
+                .containsEntry("username", FieldDescriptor.of(FieldType.STRING))
+                .containsEntry("email", FieldDescriptor.of(FieldType.STRING));
     }
 
     @Test
@@ -66,12 +63,12 @@ class RequiredFieldsExtractorTest {
         schema.addProperty("username", new Schema<>().type("string"));
         schema.addProperty("optional", new Schema<>().type("string"));
 
-        Map<String, FieldType> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema);
 
         assertThat(result)
                 .as("Should only extract required fields")
                 .hasSize(1)
-                .containsEntry("username", FieldType.STRING);
+                .containsEntry("username", FieldDescriptor.of(FieldType.STRING));
     }
 
     @Test
@@ -84,12 +81,12 @@ class RequiredFieldsExtractorTest {
         schema.setRequired(Arrays.asList("data"));
         schema.addProperty("data", nestedSchema);
 
-        Map<String, FieldType> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema);
 
         assertThat(result)
                 .as("Should extract nested required fields with full path")
-                .containsEntry("data", FieldType.OBJECT)
-                .containsEntry("data.content", FieldType.STRING);
+                .containsEntry("data", FieldDescriptor.of(FieldType.OBJECT))
+                .containsEntry("data.content", FieldDescriptor.of(FieldType.STRING));
     }
 
     @Test
@@ -108,12 +105,12 @@ class RequiredFieldsExtractorTest {
         Schema<?> composedSchema = new Schema<>();
         composedSchema.setAllOf(Arrays.asList(baseSchema, dataSchema));
 
-        Map<String, FieldType> result = extractor.extract(composedSchema);
+        Map<String, FieldDescriptor> result = extractor.extract(composedSchema);
 
         assertThat(result)
                 .as("Should extract required fields from all allOf schemas")
-                .containsEntry("id", FieldType.STRING)
-                .containsEntry("content", FieldType.STRING);
+                .containsEntry("id", FieldDescriptor.of(FieldType.STRING))
+                .containsEntry("content", FieldDescriptor.of(FieldType.STRING));
     }
 
     @Test
@@ -132,12 +129,12 @@ class RequiredFieldsExtractorTest {
         Schema<?> composedSchema = new Schema<>();
         composedSchema.setOneOf(Arrays.asList(firstOption, secondOption));
 
-        Map<String, FieldType> result = extractor.extract(composedSchema);
+        Map<String, FieldDescriptor> result = extractor.extract(composedSchema);
 
         assertThat(result)
                 .as("Should extract required fields from oneOf schemas")
-                .containsEntry("name", FieldType.STRING)
-                .containsEntry("email", FieldType.STRING);
+                .containsEntry("name", FieldDescriptor.of(FieldType.STRING))
+                .containsEntry("email", FieldDescriptor.of(FieldType.STRING));
     }
 
     @Test
@@ -156,19 +153,19 @@ class RequiredFieldsExtractorTest {
         Schema<?> composedSchema = new Schema<>();
         composedSchema.setAnyOf(Arrays.asList(firstOption, secondOption));
 
-        Map<String, FieldType> result = extractor.extract(composedSchema);
+        Map<String, FieldDescriptor> result = extractor.extract(composedSchema);
 
         assertThat(result)
                 .as("Should extract required fields from anyOf schemas")
-                .containsEntry("username", FieldType.STRING)
-                .containsEntry("userId", FieldType.STRING);
+                .containsEntry("username", FieldDescriptor.of(FieldType.STRING))
+                .containsEntry("userId", FieldDescriptor.of(FieldType.STRING));
     }
 
     @Test
     void test_extract_from_empty_schema_does_return_empty_as_expected() {
         Schema<?> schema = new Schema<>();
 
-        Map<String, FieldType> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema);
 
         assertThat(result)
                 .as("Empty schema should return empty map")
@@ -177,7 +174,7 @@ class RequiredFieldsExtractorTest {
 
     @Test
     void test_extract_from_null_schema_does_return_empty_as_expected() {
-        Map<String, FieldType> result = extractor.extract(null);
+        Map<String, FieldDescriptor> result = extractor.extract(null);
 
         assertThat(result)
                 .as("Null schema should return empty map")
@@ -198,13 +195,13 @@ class RequiredFieldsExtractorTest {
         level1.setRequired(Arrays.asList("nested"));
         level1.addProperty("nested", level2);
 
-        Map<String, FieldType> result = extractor.extract(level1);
+        Map<String, FieldDescriptor> result = extractor.extract(level1);
 
         assertThat(result)
                 .as("Should extract deeply nested fields")
-                .containsEntry("nested", FieldType.OBJECT)
-                .containsEntry("nested.deep", FieldType.OBJECT)
-                .containsEntry("nested.deep.value", FieldType.STRING);
+                .containsEntry("nested", FieldDescriptor.of(FieldType.OBJECT))
+                .containsEntry("nested.deep", FieldDescriptor.of(FieldType.OBJECT))
+                .containsEntry("nested.deep.value", FieldDescriptor.of(FieldType.STRING));
     }
 
     @Test
@@ -216,13 +213,13 @@ class RequiredFieldsExtractorTest {
         schema.addProperty("active", new Schema<>().type("boolean"));
         schema.addProperty("tags", new Schema<>().type("array"));
 
-        Map<String, FieldType> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema);
 
         assertThat(result)
                 .as("Should extract and correctly type all field types")
-                .containsEntry("name", FieldType.STRING)
-                .containsEntry("age", FieldType.NUMBER)
-                .containsEntry("active", FieldType.BOOLEAN)
-                .containsEntry("tags", FieldType.ARRAY);
+                .containsEntry("name", FieldDescriptor.of(FieldType.STRING))
+                .containsEntry("age", FieldDescriptor.of(FieldType.NUMBER))
+                .containsEntry("active", FieldDescriptor.of(FieldType.BOOLEAN))
+                .containsEntry("tags", FieldDescriptor.of(FieldType.ARRAY));
     }
 }

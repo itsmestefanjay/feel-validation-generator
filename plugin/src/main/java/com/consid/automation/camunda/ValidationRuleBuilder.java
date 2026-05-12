@@ -10,9 +10,9 @@ import java.util.Map;
 public interface ValidationRuleBuilder {
 
     /**
-     * Create a validation rule for the given field path/type combination.
+     * Create a validation rule for the given field path and descriptor.
      */
-    ValidationRule createRule(String fieldPath, FieldType fieldType);
+    ValidationRule createRule(String fieldPath, FieldDescriptor descriptor);
 
     /**
      * Render the grouped validation rules into the final FEEL output.

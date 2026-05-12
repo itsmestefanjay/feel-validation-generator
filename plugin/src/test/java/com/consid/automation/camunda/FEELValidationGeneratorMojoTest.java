@@ -1,4 +1,4 @@
-package com.consid.bpm.camunda;
+package com.consid.automation.camunda;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -7,7 +7,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import com.consid.automation.camunda.FEELValidationGeneratorMojo;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -290,6 +289,10 @@ public class FEELValidationGeneratorMojoTest {
             var failField = FEELValidationGeneratorMojo.class.getDeclaredField("failStatusCode");
             failField.setAccessible(true);
             failField.set(mojo, 400);
+
+            var mediaTypeField = FEELValidationGeneratorMojo.class.getDeclaredField("mediaType");
+            mediaTypeField.setAccessible(true);
+            mediaTypeField.set(mojo, "application/json");
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new RuntimeException("Failed to set Mojo fields", e);
         }

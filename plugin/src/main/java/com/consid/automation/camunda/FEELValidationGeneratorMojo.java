@@ -56,6 +56,13 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
     private String methods;
 
     /**
+     * Request body media type to read schemas from. Operations declaring multiple
+     * content types only contribute the schema matching this media type.
+     */
+    @Parameter(property = "feelValidationGenerator.mediaType", defaultValue = "application/json")
+    private String mediaType;
+
+    /**
      * Executes the FEEL validation generation logic.
      *
      * @throws MojoExecutionException if an unexpected error occurs
@@ -68,11 +75,11 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
             getLog().info("Input OpenAPI spec: " + openApiSpec);
             getLog().info("Output file: " + outputFile);
 
-            if (!Files.exists(Path.of(openApiSpec))) {
+            Path specPath = Path.of(openApiSpec);
+            if (!Files.exists(specPath)) {
                 throw new MojoFailureException("OpenAPI specification file not found: " + openApiSpec);
             }
 
-            // Execute the validation generation logic
             List<String> methodList = Arrays.stream(methods.split(","))
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
@@ -80,12 +87,13 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
                     .toList();
 
             FEELValidationGenerator generator = FEELValidationGenerator.builder()
-                .withOpenApiPath(openApiSpec)
-                .withOutputFilePath(outputFile)
+                .withOpenApiPath(specPath)
+                .withOutputFilePath(Path.of(outputFile))
                 .withResponse(addResponse)
                 .withSuccessStatusCode(successStatusCode)
                 .withFailStatusCode(failStatusCode)
                 .withHttpMethods(methodList)
+                .withMediaType(mediaType)
                 .build();
             generator.generate();
 

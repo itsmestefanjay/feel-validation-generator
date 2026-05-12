@@ -1,6 +1,5 @@
-package com.consid.bpm.camunda;
+package com.consid.automation.camunda;
 
-import com.consid.automation.camunda.FEELValidationGenerator;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -54,8 +53,8 @@ public class FEELValidationGeneratorResponseTest extends AbstractFEELValidationG
         Path outputFile = tempDir.resolve(scenarioId + ".feel");
 
         var generator = FEELValidationGenerator.builder()
-            .withOpenApiPath(specFile.toAbsolutePath().toString())
-            .withOutputFilePath(outputFile.toAbsolutePath().toString())
+            .withOpenApiPath(specFile.toAbsolutePath())
+            .withOutputFilePath(outputFile.toAbsolutePath())
             .withResponse(true)
             .build();
 

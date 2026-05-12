@@ -41,7 +41,7 @@ emits the validation logic for you.
 <build>
   <plugins>
     <plugin>
-      <groupId>com.consid.bpm.camunda</groupId>
+      <groupId>com.consid.automation.camunda</groupId>
       <artifactId>feel-validation-generator</artifactId>
       <version>1.0.0</version>
       <executions>
@@ -64,7 +64,7 @@ emits the validation logic for you.
 Or run it directly:
 
 ```bash
-mvn com.consid.bpm.camunda:feel-validation-generator:1.0.0:generate-feel \
+mvn com.consid.automation.camunda:feel-validation-generator:1.0.0:generate-feel \
   -DfeelValidationGenerator.openApiSpec=src/main/resources/openapi.yaml \
   -DfeelValidationGenerator.outputFile=target/validation.feel
 ```
@@ -93,8 +93,8 @@ example.
 
 ```java
 FEELValidationGenerator generator = FEELValidationGenerator.builder()
-    .withOpenApiPath("src/main/resources/api.yaml")
-    .withOutputFilePath("target/validation.feel")
+    .withOpenApiPath(Path.of("src/main/resources/api.yaml"))
+    .withOutputFilePath(Path.of("target/validation.feel"))
     .withResponse(true)
     .withSuccessStatusCode(202)
     .withFailStatusCode(422)

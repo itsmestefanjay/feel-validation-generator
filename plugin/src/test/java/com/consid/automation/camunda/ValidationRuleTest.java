@@ -1,11 +1,10 @@
-package com.consid.bpm.camunda;
+package com.consid.automation.camunda;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
-import com.consid.automation.camunda.ValidationRule;
 
 class ValidationRuleTest {
 

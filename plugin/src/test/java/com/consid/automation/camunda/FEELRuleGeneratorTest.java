@@ -1,4 +1,4 @@
-package com.consid.bpm.camunda;
+package com.consid.automation.camunda;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -8,9 +8,6 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import com.consid.automation.camunda.FieldType;
-import com.consid.automation.camunda.ValidationRule;
-import com.consid.automation.camunda.FEELRuleGenerator;
 
 class FEELRuleGeneratorTest {
 
@@ -18,7 +15,7 @@ class FEELRuleGeneratorTest {
     void test_create_rule_does_generate_field_rule_as_expected() {
         FEELRuleGenerator generator = new FEELRuleGenerator(false);
 
-        ValidationRule rule = generator.createRule("user.name", FieldType.STRING);
+        ValidationRule rule = generator.createRule("user.name", FieldDescriptor.of(FieldType.STRING));
 
         assertThat(rule.id()).isEqualTo("user.name-invalid");
         assertThat(rule.invalidExpression())

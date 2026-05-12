@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
  * Centralizes all FEEL-specific rule building and rendering logic so that the rest
  * of the generator remains focused on OpenAPI traversal.
  */
-public class FEELRuleGenerator implements ValidationRuleBuilder {
+class FEELRuleGenerator implements ValidationRuleBuilder {
 
     private static final String ACTIVATION_TEMPLATE = """
             {
@@ -38,11 +38,11 @@ public class FEELRuleGenerator implements ValidationRuleBuilder {
     private final int successStatusCode;
     private final int failureStatusCode;
 
-    public FEELRuleGenerator(boolean addResponse) {
+    FEELRuleGenerator(boolean addResponse) {
         this(addResponse, 201, 400);
     }
 
-    public FEELRuleGenerator(boolean addResponse, int successStatusCode, int failureStatusCode) {
+    FEELRuleGenerator(boolean addResponse, int successStatusCode, int failureStatusCode) {
         this(addResponse, successStatusCode, failureStatusCode, new FEELExpressionBuilder());
     }
 
@@ -57,9 +57,9 @@ public class FEELRuleGenerator implements ValidationRuleBuilder {
     }
 
     @Override
-    public ValidationRule createRule(String fieldPath, FieldType fieldType) {
+    public ValidationRule createRule(String fieldPath, FieldDescriptor descriptor) {
         String ruleId = fieldPath + "-invalid";
-        String condition = expressionBuilder.build("req." + fieldPath, fieldType);
+        String condition = expressionBuilder.build("req." + fieldPath, descriptor);
         return ValidationRule.create(ruleId, condition, fieldPath);
     }
 

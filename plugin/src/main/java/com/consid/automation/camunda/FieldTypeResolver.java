@@ -3,8 +3,10 @@ package com.consid.automation.camunda;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.media.Schema;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Determines the type of a field from an OpenAPI schema.
@@ -20,21 +22,57 @@ public class FieldTypeResolver {
     }
 
     /**
-     * Determines the field type from a schema.
-     * Resolves schema references before type determination.
+     * Determines the field descriptor from a schema, resolving references first.
      */
-    public FieldType resolve(Schema<?> schema) {
+    public FieldDescriptor resolve(Schema<?> schema) {
         if (schema == null) {
-            return FieldType.UNKNOWN;
+            return FieldDescriptor.of(FieldType.UNKNOWN);
         }
 
-        // Resolve schema reference if needed
-        schema = resolveSchemaReference(schema);
-        if (schema == null) {
-            return FieldType.UNKNOWN;
+        Schema<?> resolved = resolveSchemaReference(schema);
+        if (resolved == null) {
+            return FieldDescriptor.of(FieldType.UNKNOWN);
         }
 
-        return mapTypeToFieldType(schema.getType(), schema);
+        FieldType type = mapTypeToFieldType(primaryType(resolved), resolved);
+        boolean nullable = isNullable(resolved);
+        List<Object> enumValues = resolved.getEnum() == null
+            ? List.of()
+            : List.copyOf(resolved.getEnum());
+        return new FieldDescriptor(type, nullable, enumValues);
+    }
+
+    /**
+     * Returns the schema's primary type, preferring OpenAPI 3.0's single
+     * {@code type} but falling back to the first non-"null" entry from
+     * OpenAPI 3.1's {@code types} array.
+     */
+    private String primaryType(Schema<?> schema) {
+        String singleType = schema.getType();
+        if (singleType != null) {
+            return singleType;
+        }
+        Set<String> types = schema.getTypes();
+        if (types == null) {
+            return null;
+        }
+        for (String candidate : types) {
+            if (candidate != null && !"null".equalsIgnoreCase(candidate)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private boolean isNullable(Schema<?> schema) {
+        if (Boolean.TRUE.equals(schema.getNullable())) {
+            return true;
+        }
+        Set<String> types = schema.getTypes();
+        if (types == null) {
+            return false;
+        }
+        return types.stream().anyMatch(t -> "null".equalsIgnoreCase(t));
     }
 
     /**
@@ -46,12 +84,24 @@ public class FieldTypeResolver {
         }
 
         return switch (type.toLowerCase(Locale.ROOT)) {
-            case "string" -> FieldType.STRING;
+            case "string" -> stringSubtype(schema.getFormat());
             case "number", "integer" -> FieldType.NUMBER;
             case "boolean" -> FieldType.BOOLEAN;
             case "array" -> FieldType.ARRAY;
             case "object" -> FieldType.OBJECT;
             default -> FieldType.UNKNOWN;
+        };
+    }
+
+    private FieldType stringSubtype(String format) {
+        if (format == null) {
+            return FieldType.STRING;
+        }
+        return switch (format.toLowerCase(Locale.ROOT)) {
+            case "date" -> FieldType.DATE;
+            case "date-time" -> FieldType.DATE_TIME;
+            case "time" -> FieldType.TIME;
+            default -> FieldType.STRING;
         };
     }
 
