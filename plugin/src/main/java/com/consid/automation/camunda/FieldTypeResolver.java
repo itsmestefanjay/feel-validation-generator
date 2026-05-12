@@ -30,10 +30,6 @@ public class FieldTypeResolver {
         }
 
         Schema<?> resolved = resolveSchemaReference(schema);
-        if (resolved == null) {
-            return FieldDescriptor.of(FieldType.UNKNOWN);
-        }
-
         FieldType type = mapTypeToFieldType(primaryType(resolved), resolved);
         boolean nullable = isNullable(resolved);
         List<Object> enumValues = resolved.getEnum() == null

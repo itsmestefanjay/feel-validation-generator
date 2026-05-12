@@ -59,8 +59,19 @@ class FEELRuleGenerator implements ValidationRuleBuilder {
     @Override
     public ValidationRule createRule(String fieldPath, FieldDescriptor descriptor) {
         String ruleId = fieldPath + "-invalid";
-        String condition = expressionBuilder.build("req." + fieldPath, descriptor);
+        String condition = expressionBuilder.build("req." + fieldPath, qualifyDependsOn(descriptor));
         return ValidationRule.create(ruleId, condition, fieldPath);
+    }
+
+    private FieldDescriptor qualifyDependsOn(FieldDescriptor descriptor) {
+        if (!descriptor.isConditional()) {
+            return descriptor;
+        }
+        List<String> qualified = descriptor.dependsOn().stream()
+            .map(path -> "req." + path)
+            .toList();
+        return new FieldDescriptor(
+            descriptor.type(), descriptor.nullable(), descriptor.enumValues(), qualified);
     }
 
     @Override

@@ -13,11 +13,26 @@ import java.util.stream.Collectors;
 public class FEELExpressionBuilder {
 
     public String build(String fieldName, FieldDescriptor descriptor) {
+        String body = buildBody(fieldName, descriptor);
+        if (!descriptor.isConditional()) {
+            return body;
+        }
+        return guardExpression(descriptor.dependsOn()) + " and (" + body + ")";
+    }
+
+    private String buildBody(String fieldName, FieldDescriptor descriptor) {
         String violation = buildViolation(fieldName, descriptor);
         if (descriptor.nullable()) {
             return violation == null ? "false" : fieldName + "!=null and (" + violation + ")";
         }
         return violation == null ? fieldName + "=null" : fieldName + "=null or " + violation;
+    }
+
+    private String guardExpression(List<String> dependsOn) {
+        String parts = dependsOn.stream()
+            .map(path -> path + "!=null")
+            .collect(Collectors.joining(" or "));
+        return dependsOn.size() == 1 ? parts : "(" + parts + ")";
     }
 
     private String buildViolation(String fieldName, FieldDescriptor descriptor) {
@@ -32,9 +47,9 @@ public class FEELExpressionBuilder {
     private String typeViolation(String fieldName, FieldType type) {
         return switch (type) {
             case STRING -> "not(" + fieldName + " instance of string) or is blank(" + fieldName + ")";
-            case NUMBER -> "number(" + fieldName + ")=null";
+            case NUMBER -> "not(" + fieldName + " instance of number)";
             case BOOLEAN -> "not(" + fieldName + " instance of boolean)";
-            case ARRAY -> "is empty(" + fieldName + ")";
+            case ARRAY -> "not(" + fieldName + " instance of list) or is empty(" + fieldName + ")";
             case OBJECT -> "not(" + fieldName + " instance of context)";
             case DATE -> "date(" + fieldName + ")=null";
             case DATE_TIME -> "date and time(" + fieldName + ")=null";

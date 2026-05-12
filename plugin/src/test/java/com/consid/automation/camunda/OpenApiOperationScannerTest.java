@@ -18,7 +18,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for OpenApiOperationScanner.
- * Tests the filtering by HTTP method and media type and the heading format.
  */
 class OpenApiOperationScannerTest {
 
@@ -27,65 +26,75 @@ class OpenApiOperationScannerTest {
 
     @Test
     void test_scan_does_return_empty_when_paths_are_missing_as_expected() {
+        // given
         OpenApiOperationScanner scanner = new OpenApiOperationScanner(DEFAULT_METHODS, JSON);
 
+        // when
         Map<String, Schema<?>> result = scanner.scan(new OpenAPI());
 
-        assertThat(result).as("Scanner should return empty map for spec without paths").isEmpty();
+        // then
+        assertThat(result).isEmpty();
     }
 
     @Test
     void test_scan_does_collect_matching_operation_as_expected() {
+        // given
         Schema<?> bodySchema = new Schema<>().type("object");
         OpenAPI openAPI = openApiWith("/customers", PathItem.HttpMethod.POST, JSON, bodySchema);
         OpenApiOperationScanner scanner = new OpenApiOperationScanner(DEFAULT_METHODS, JSON);
 
+        // when
         Map<String, Schema<?>> result = scanner.scan(openAPI);
 
-        assertThat(result)
-            .as("Scanner should expose POST /customers schema under a FEEL heading")
-            .containsExactly(Map.entry("# POST /customers", bodySchema));
+        // then
+        assertThat(result).containsExactly(Map.entry("# POST /customers", bodySchema));
     }
 
     @Test
     void test_scan_does_skip_operations_outside_configured_methods_as_expected() {
+        // given
         Schema<?> bodySchema = new Schema<>().type("object");
         OpenAPI openAPI = openApiWith("/customers", PathItem.HttpMethod.DELETE, JSON, bodySchema);
         OpenApiOperationScanner scanner = new OpenApiOperationScanner(DEFAULT_METHODS, JSON);
 
+        // when
         Map<String, Schema<?>> result = scanner.scan(openAPI);
 
-        assertThat(result)
-            .as("DELETE operations must not contribute when only POST/PUT/PATCH are configured")
-            .isEmpty();
+        // then
+        assertThat(result).isEmpty();
     }
 
     @Test
     void test_scan_does_skip_operations_without_request_body_as_expected() {
+        // given
         OpenAPI openAPI = new OpenAPI().paths(new Paths().addPathItem(
             "/customers", new PathItem().post(new Operation())));
         OpenApiOperationScanner scanner = new OpenApiOperationScanner(DEFAULT_METHODS, JSON);
 
+        // when
         Map<String, Schema<?>> result = scanner.scan(openAPI);
 
-        assertThat(result).as("Operations without a request body should be skipped").isEmpty();
+        // then
+        assertThat(result).isEmpty();
     }
 
     @Test
     void test_scan_does_skip_operations_without_matching_media_type_as_expected() {
+        // given
         Schema<?> bodySchema = new Schema<>().type("object");
         OpenAPI openAPI = openApiWith("/customers", PathItem.HttpMethod.POST, "application/xml", bodySchema);
         OpenApiOperationScanner scanner = new OpenApiOperationScanner(DEFAULT_METHODS, JSON);
 
+        // when
         Map<String, Schema<?>> result = scanner.scan(openAPI);
 
-        assertThat(result)
-            .as("Body declared only for application/xml should be skipped when scanning JSON")
-            .isEmpty();
+        // then
+        assertThat(result).isEmpty();
     }
 
     @Test
     void test_scan_does_pick_configured_media_type_among_many_as_expected() {
+        // given
         Schema<?> jsonSchema = new Schema<>().type("object").addProperty("json", new Schema<>().type("string"));
         Schema<?> xmlSchema = new Schema<>().type("object").addProperty("xml", new Schema<>().type("string"));
         Content content = new Content()
@@ -96,28 +105,30 @@ class OpenApiOperationScannerTest {
             "/customers", new PathItem().post(operation)));
         OpenApiOperationScanner scanner = new OpenApiOperationScanner(DEFAULT_METHODS, "application/xml");
 
+        // when
         Map<String, Schema<?>> result = scanner.scan(openAPI);
 
-        assertThat(result)
-            .as("Scanner should return the schema attached to the configured media type")
-            .containsExactly(Map.entry("# POST /customers", xmlSchema));
+        // then
+        assertThat(result).containsExactly(Map.entry("# POST /customers", xmlSchema));
     }
 
     @Test
     void test_scan_does_silently_skip_invalid_http_method_names_as_expected() {
+        // given
         Schema<?> bodySchema = new Schema<>().type("object");
         OpenAPI openAPI = openApiWith("/customers", PathItem.HttpMethod.POST, JSON, bodySchema);
         OpenApiOperationScanner scanner = new OpenApiOperationScanner(List.of("POST", "BREW"), JSON);
 
+        // when
         Map<String, Schema<?>> result = scanner.scan(openAPI);
 
-        assertThat(result)
-            .as("Unknown HTTP method names should be ignored, valid ones still processed")
-            .containsExactly(Map.entry("# POST /customers", bodySchema));
+        // then
+        assertThat(result).containsExactly(Map.entry("# POST /customers", bodySchema));
     }
 
     @Test
     void test_scan_does_preserve_path_order_as_expected() {
+        // given
         Schema<?> first = new Schema<>().type("object").addProperty("a", new Schema<>().type("string"));
         Schema<?> second = new Schema<>().type("object").addProperty("b", new Schema<>().type("string"));
         Paths paths = new Paths()
@@ -126,15 +137,16 @@ class OpenApiOperationScannerTest {
         OpenAPI openAPI = new OpenAPI().paths(paths);
         OpenApiOperationScanner scanner = new OpenApiOperationScanner(DEFAULT_METHODS, JSON);
 
+        // when
         Map<String, Schema<?>> result = scanner.scan(openAPI);
 
-        assertThat(result.keySet())
-            .as("Scanner should preserve insertion order of paths")
-            .containsExactly("# POST /first", "# POST /second");
+        // then
+        assertThat(result.keySet()).containsExactly("# POST /first", "# POST /second");
     }
 
     @Test
     void test_constructor_does_reject_null_arguments_as_expected() {
+        // when // then
         assertThatThrownBy(() -> new OpenApiOperationScanner(null, JSON))
             .isInstanceOf(NullPointerException.class)
             .hasMessageContaining("httpMethods");
