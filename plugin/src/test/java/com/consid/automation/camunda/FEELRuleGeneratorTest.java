@@ -15,7 +15,7 @@ class FEELRuleGeneratorTest {
     void test_create_rule_does_generate_field_rule_as_expected() {
         FEELRuleGenerator generator = new FEELRuleGenerator(false);
 
-        ValidationRule rule = generator.createRule("user.name", FieldType.STRING);
+        ValidationRule rule = generator.createRule("user.name", FieldDescriptor.of(FieldType.STRING));
 
         assertThat(rule.id()).isEqualTo("user.name-invalid");
         assertThat(rule.invalidExpression())

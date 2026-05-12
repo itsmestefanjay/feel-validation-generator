@@ -30,9 +30,9 @@ class FieldTypeResolverTest {
         resolver = new FieldTypeResolver(openAPI);
         Schema<?> schema = new Schema<>().type("string");
 
-        FieldType result = resolver.resolve(schema);
+        FieldDescriptor result = resolver.resolve(schema);
 
-        assertThat(result).as("String type should be resolved correctly").isEqualTo(FieldType.STRING);
+        assertThat(result.type()).as("String type should be resolved correctly").isEqualTo(FieldType.STRING);
     }
 
     @Test
@@ -40,9 +40,9 @@ class FieldTypeResolverTest {
         resolver = new FieldTypeResolver(openAPI);
         Schema<?> schema = new Schema<>().type("number");
 
-        FieldType result = resolver.resolve(schema);
+        FieldDescriptor result = resolver.resolve(schema);
 
-        assertThat(result).as("Number type should be resolved correctly").isEqualTo(FieldType.NUMBER);
+        assertThat(result.type()).as("Number type should be resolved correctly").isEqualTo(FieldType.NUMBER);
     }
 
     @Test
@@ -50,9 +50,9 @@ class FieldTypeResolverTest {
         resolver = new FieldTypeResolver(openAPI);
         Schema<?> schema = new Schema<>().type("integer");
 
-        FieldType result = resolver.resolve(schema);
+        FieldDescriptor result = resolver.resolve(schema);
 
-        assertThat(result).as("Integer type should be resolved as number").isEqualTo(FieldType.NUMBER);
+        assertThat(result.type()).as("Integer type should be resolved as number").isEqualTo(FieldType.NUMBER);
     }
 
     @Test
@@ -60,9 +60,9 @@ class FieldTypeResolverTest {
         resolver = new FieldTypeResolver(openAPI);
         Schema<?> schema = new Schema<>().type("boolean");
 
-        FieldType result = resolver.resolve(schema);
+        FieldDescriptor result = resolver.resolve(schema);
 
-        assertThat(result).as("Boolean type should be resolved correctly").isEqualTo(FieldType.BOOLEAN);
+        assertThat(result.type()).as("Boolean type should be resolved correctly").isEqualTo(FieldType.BOOLEAN);
     }
 
     @Test
@@ -70,9 +70,9 @@ class FieldTypeResolverTest {
         resolver = new FieldTypeResolver(openAPI);
         Schema<?> schema = new Schema<>().type("array");
 
-        FieldType result = resolver.resolve(schema);
+        FieldDescriptor result = resolver.resolve(schema);
 
-        assertThat(result).as("Array type should be resolved correctly").isEqualTo(FieldType.ARRAY);
+        assertThat(result.type()).as("Array type should be resolved correctly").isEqualTo(FieldType.ARRAY);
     }
 
     @Test
@@ -80,18 +80,18 @@ class FieldTypeResolverTest {
         resolver = new FieldTypeResolver(openAPI);
         Schema<?> schema = new Schema<>().type("object");
 
-        FieldType result = resolver.resolve(schema);
+        FieldDescriptor result = resolver.resolve(schema);
 
-        assertThat(result).as("Object type should be resolved correctly").isEqualTo(FieldType.OBJECT);
+        assertThat(result.type()).as("Object type should be resolved correctly").isEqualTo(FieldType.OBJECT);
     }
 
     @Test
     void test_resolve_null_schema_does_return_unknown_as_expected() {
         resolver = new FieldTypeResolver(openAPI);
 
-        FieldType result = resolver.resolve(null);
+        FieldDescriptor result = resolver.resolve(null);
 
-        assertThat(result).as("Null schema should resolve to UNKNOWN").isEqualTo(FieldType.UNKNOWN);
+        assertThat(result.type()).as("Null schema should resolve to UNKNOWN").isEqualTo(FieldType.UNKNOWN);
     }
 
     @Test
@@ -99,9 +99,9 @@ class FieldTypeResolverTest {
         resolver = new FieldTypeResolver(openAPI);
         Schema<?> schema = new Schema<>().type("unsupported");
 
-        FieldType result = resolver.resolve(schema);
+        FieldDescriptor result = resolver.resolve(schema);
 
-        assertThat(result).as("Unsupported type should resolve to UNKNOWN").isEqualTo(FieldType.UNKNOWN);
+        assertThat(result.type()).as("Unsupported type should resolve to UNKNOWN").isEqualTo(FieldType.UNKNOWN);
     }
 
     @Test
@@ -110,9 +110,9 @@ class FieldTypeResolverTest {
         Schema<?> schema = new Schema<>();
         schema.addProperty("field1", new Schema<>().type("string"));
 
-        FieldType result = resolver.resolve(schema);
+        FieldDescriptor result = resolver.resolve(schema);
 
-        assertThat(result).as("Schema with properties but no type should resolve to OBJECT").isEqualTo(FieldType.OBJECT);
+        assertThat(result.type()).as("Schema with properties but no type should resolve to OBJECT").isEqualTo(FieldType.OBJECT);
     }
 
     @Test
@@ -121,9 +121,9 @@ class FieldTypeResolverTest {
         Schema<?> schema = new Schema<>();
         schema.setRequired(Arrays.asList("field1"));
 
-        FieldType result = resolver.resolve(schema);
+        FieldDescriptor result = resolver.resolve(schema);
 
-        assertThat(result).as("Schema with required fields but no type should resolve to OBJECT").isEqualTo(FieldType.OBJECT);
+        assertThat(result.type()).as("Schema with required fields but no type should resolve to OBJECT").isEqualTo(FieldType.OBJECT);
     }
 
     @Test
@@ -135,9 +135,9 @@ class FieldTypeResolverTest {
         Schema<?> schema = new Schema<>();
         schema.set$ref("#/components/schemas/RefSchema");
 
-        FieldType result = resolver.resolve(schema);
+        FieldDescriptor result = resolver.resolve(schema);
 
-        assertThat(result).as("Referenced schema should resolve to referenced type").isEqualTo(FieldType.BOOLEAN);
+        assertThat(result.type()).as("Referenced schema should resolve to referenced type").isEqualTo(FieldType.BOOLEAN);
     }
 
     @Test

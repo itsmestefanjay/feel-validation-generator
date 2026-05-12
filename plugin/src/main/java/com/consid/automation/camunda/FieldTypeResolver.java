@@ -20,21 +20,20 @@ public class FieldTypeResolver {
     }
 
     /**
-     * Determines the field type from a schema.
-     * Resolves schema references before type determination.
+     * Determines the field descriptor from a schema, resolving references first.
      */
-    public FieldType resolve(Schema<?> schema) {
+    public FieldDescriptor resolve(Schema<?> schema) {
         if (schema == null) {
-            return FieldType.UNKNOWN;
+            return FieldDescriptor.of(FieldType.UNKNOWN);
         }
 
-        // Resolve schema reference if needed
-        schema = resolveSchemaReference(schema);
-        if (schema == null) {
-            return FieldType.UNKNOWN;
+        Schema<?> resolved = resolveSchemaReference(schema);
+        if (resolved == null) {
+            return FieldDescriptor.of(FieldType.UNKNOWN);
         }
 
-        return mapTypeToFieldType(schema.getType(), schema);
+        FieldType type = mapTypeToFieldType(resolved.getType(), resolved);
+        return FieldDescriptor.of(type);
     }
 
     /**

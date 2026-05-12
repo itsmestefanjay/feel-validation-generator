@@ -25,8 +25,8 @@ public class RequiredFieldsExtractor {
      * Extracts all required fields from a schema.
      * Returns a map of field paths to their types.
      */
-    public Map<String, FieldType> extract(Schema<?> schema) {
-        Map<String, FieldType> requiredFields = new LinkedHashMap<>();
+    public Map<String, FieldDescriptor> extract(Schema<?> schema) {
+        Map<String, FieldDescriptor> requiredFields = new LinkedHashMap<>();
         Set<Schema<?>> activeStack = Collections.newSetFromMap(new IdentityHashMap<>());
         collectRequiredFields(schema, requiredFields, "", activeStack);
         return requiredFields;
@@ -38,7 +38,7 @@ public class RequiredFieldsExtractor {
      * a self-referential schema terminates while a component reused at multiple
      * field paths is still expanded each time.
      */
-    private void collectRequiredFields(Schema<?> schema, Map<String, FieldType> requiredFields,
+    private void collectRequiredFields(Schema<?> schema, Map<String, FieldDescriptor> requiredFields,
                                        String pathPrefix, Set<Schema<?>> activeStack) {
         if (schema == null) {
             return;
@@ -63,7 +63,7 @@ public class RequiredFieldsExtractor {
         }
     }
 
-    private void processDirectRequiredFields(Schema<?> schema, Map<String, FieldType> requiredFields, String pathPrefix) {
+    private void processDirectRequiredFields(Schema<?> schema, Map<String, FieldDescriptor> requiredFields, String pathPrefix) {
         if (schema.getRequired() == null || schema.getProperties() == null) {
             return;
         }
@@ -76,13 +76,13 @@ public class RequiredFieldsExtractor {
             String fullFieldPath = buildFieldPath(pathPrefix, requiredField);
             if (!requiredFields.containsKey(fullFieldPath)) {
                 Schema<?> propertySchema = properties.get(requiredField);
-                FieldType fieldType = typeResolver.resolve(propertySchema);
-                requiredFields.put(fullFieldPath, fieldType);
+                FieldDescriptor descriptor = typeResolver.resolve(propertySchema);
+                requiredFields.put(fullFieldPath, descriptor);
             }
         }
     }
 
-    private void processComposition(List<?> schemas, Map<String, FieldType> requiredFields,
+    private void processComposition(List<?> schemas, Map<String, FieldDescriptor> requiredFields,
                                     String pathPrefix, Set<Schema<?>> activeStack) {
         if (schemas == null || schemas.isEmpty()) {
             return;
@@ -95,7 +95,7 @@ public class RequiredFieldsExtractor {
     }
 
     @SuppressWarnings("rawtypes") // Schema's API exposes Map<String, Schema> raw.
-    private void processNestedProperties(Schema<?> schema, Map<String, FieldType> requiredFields,
+    private void processNestedProperties(Schema<?> schema, Map<String, FieldDescriptor> requiredFields,
                                          String pathPrefix, Set<Schema<?>> activeStack) {
         Map<String, Schema> properties = schema.getProperties();
         if (properties == null) {
@@ -109,8 +109,8 @@ public class RequiredFieldsExtractor {
             Schema<?> propSchema = properties.get(propName);
             String newPath = buildFieldPath(pathPrefix, propName);
 
-            FieldType fieldType = typeResolver.resolve(propSchema);
-            if (fieldType == FieldType.OBJECT) {
+            FieldDescriptor descriptor = typeResolver.resolve(propSchema);
+            if (descriptor.type() == FieldType.OBJECT) {
                 collectRequiredFields(propSchema, requiredFields, newPath, activeStack);
             }
         }

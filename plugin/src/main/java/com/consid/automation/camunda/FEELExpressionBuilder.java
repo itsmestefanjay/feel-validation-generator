@@ -8,8 +8,8 @@ public class FEELExpressionBuilder {
     /**
      * Generates a FEEL expression for validating a field based on its type.
      */
-    public String build(String fieldName, FieldType fieldType) {
-        return switch (fieldType) {
+    public String build(String fieldName, FieldDescriptor descriptor) {
+        return switch (descriptor.type()) {
             case STRING -> buildStringExpression(fieldName);
             case NUMBER -> buildNumberExpression(fieldName);
             case BOOLEAN -> buildBooleanExpression(fieldName);

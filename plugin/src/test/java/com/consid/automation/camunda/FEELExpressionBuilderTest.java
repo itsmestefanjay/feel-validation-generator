@@ -15,7 +15,7 @@ class FEELExpressionBuilderTest {
 
     @Test
     void test_string_expression_does_build_as_expected() {
-        String result = builder.build("username", FieldType.STRING);
+        String result = builder.build("username", FieldDescriptor.of(FieldType.STRING));
 
         assertThat(result)
                 .as("String expression should validate for null, non-string, and blank")
@@ -24,7 +24,7 @@ class FEELExpressionBuilderTest {
 
     @Test
     void test_number_expression_does_build_as_expected() {
-        String result = builder.build("age", FieldType.NUMBER);
+        String result = builder.build("age", FieldDescriptor.of(FieldType.NUMBER));
 
         assertThat(result)
                 .as("Number expression should validate for null and non-numeric")
@@ -33,7 +33,7 @@ class FEELExpressionBuilderTest {
 
     @Test
     void test_boolean_expression_does_build_as_expected() {
-        String result = builder.build("isActive", FieldType.BOOLEAN);
+        String result = builder.build("isActive", FieldDescriptor.of(FieldType.BOOLEAN));
 
         assertThat(result)
                 .as("Boolean expression should validate for null and non-boolean")
@@ -42,7 +42,7 @@ class FEELExpressionBuilderTest {
 
     @Test
     void test_array_expression_does_build_as_expected() {
-        String result = builder.build("tags", FieldType.ARRAY);
+        String result = builder.build("tags", FieldDescriptor.of(FieldType.ARRAY));
 
         assertThat(result)
                 .as("Array expression should validate for null and empty")
@@ -51,7 +51,7 @@ class FEELExpressionBuilderTest {
 
     @Test
     void test_object_expression_does_build_as_expected() {
-        String result = builder.build("metadata", FieldType.OBJECT);
+        String result = builder.build("metadata", FieldDescriptor.of(FieldType.OBJECT));
 
         assertThat(result)
                 .as("Object expression should validate for null and non-context")
@@ -60,7 +60,7 @@ class FEELExpressionBuilderTest {
 
     @Test
     void test_unknown_expression_does_build_as_expected() {
-        String result = builder.build("unknown", FieldType.UNKNOWN);
+        String result = builder.build("unknown", FieldDescriptor.of(FieldType.UNKNOWN));
 
         assertThat(result)
                 .as("Unknown type should only validate for null")
@@ -69,7 +69,7 @@ class FEELExpressionBuilderTest {
 
     @Test
     void test_nested_field_expression_does_generate_as_expected() {
-        String result = builder.build("user.email", FieldType.STRING);
+        String result = builder.build("user.email", FieldDescriptor.of(FieldType.STRING));
 
         assertThat(result)
                 .as("Expression should work with nested field names")
@@ -78,7 +78,7 @@ class FEELExpressionBuilderTest {
 
     @Test
     void test_deeply_nested_expression_does_generate_as_expected() {
-        String result = builder.build("organization.department.manager.email", FieldType.STRING);
+        String result = builder.build("organization.department.manager.email", FieldDescriptor.of(FieldType.STRING));
 
         assertThat(result)
                 .as("Expression should work with deeply nested field names")

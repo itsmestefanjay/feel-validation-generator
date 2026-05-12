@@ -57,9 +57,9 @@ class FEELRuleGenerator implements ValidationRuleBuilder {
     }
 
     @Override
-    public ValidationRule createRule(String fieldPath, FieldType fieldType) {
+    public ValidationRule createRule(String fieldPath, FieldDescriptor descriptor) {
         String ruleId = fieldPath + "-invalid";
-        String condition = expressionBuilder.build("req." + fieldPath, fieldType);
+        String condition = expressionBuilder.build("req." + fieldPath, descriptor);
         return ValidationRule.create(ruleId, condition, fieldPath);
     }
 
