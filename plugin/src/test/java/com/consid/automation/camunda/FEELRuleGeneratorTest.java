@@ -47,8 +47,8 @@ class FEELRuleGeneratorTest {
             .contains("# POST /users")
             .contains("req: request.body")
             .contains("rules:")
-            .contains("{id: \"user-invalid\", invalid: req.user=null}")
-            .contains("{id: \"email-invalid\", invalid: req.email=null}")
+            .contains("{invalid: req.user=null}")
+            .contains("{invalid: req.email=null}")
             .endsWith(".isValid");
     }
 

@@ -112,11 +112,10 @@ dependentRequired:
 ```
 
 ```feel
-{ id: "shippingCarrier-invalid",
-  invalid: req.shippingAddress!=null and (
-    req.shippingCarrier=null
-    or not(req.shippingCarrier instance of string)
-    or is blank(req.shippingCarrier)) }
+{invalid: req.shippingAddress!=null and (
+  req.shippingCarrier=null
+  or not(req.shippingCarrier instance of string)
+  or is blank(req.shippingCarrier))}
 ```
 
 **`if`/`then`** *(value-conditional)* — *"if this field equals a specific value, those fields are required."* Supported subset: a single-property predicate using `const` or `enum`, with `required: [<that property>]` inside the `if`. Anything outside the subset is silently skipped.
@@ -134,11 +133,10 @@ then:
 ```
 
 ```feel
-{ id: "cardNumber-invalid",
-  invalid: req.paymentMethod="card" and (
-    req.cardNumber=null
-    or not(req.cardNumber instance of string)
-    or is blank(req.cardNumber)) }
+{invalid: req.paymentMethod="card" and (
+  req.cardNumber=null
+  or not(req.cardNumber instance of string)
+  or is blank(req.cardNumber))}
 ```
 
 `enum` predicates produce an `in (…)` check, e.g. `req.tier in ("gold", "platinum") and (…)`.
@@ -166,12 +164,12 @@ Boolean expression intended for the connector's `activationCondition` field. Inv
 {
   req: request.body,
   rules: [
-    {id: "annualIncome-invalid", invalid: req.annualIncome=null or not(req.annualIncome instance of number)},
-    {id: "customerId-invalid", invalid: req.customerId=null or not(req.customerId instance of string) or is blank(req.customerId)},
-    {id: "firstName-invalid", invalid: req.firstName=null or not(req.firstName instance of string) or is blank(req.firstName)},
-    {id: "newsletterConsent-invalid", invalid: req.newsletterConsent=null or not(req.newsletterConsent instance of boolean)},
-    {id: "profile-invalid", invalid: req.profile=null or not(req.profile instance of context)},
-    {id: "profile.bio-invalid", invalid: req.profile.bio=null or not(req.profile.bio instance of string) or is blank(req.profile.bio)}
+    {invalid: req.annualIncome=null or not(req.annualIncome instance of number)},
+    {invalid: req.customerId=null or not(req.customerId instance of string) or is blank(req.customerId)},
+    {invalid: req.firstName=null or not(req.firstName instance of string) or is blank(req.firstName)},
+    {invalid: req.newsletterConsent=null or not(req.newsletterConsent instance of boolean)},
+    {invalid: req.profile=null or not(req.profile instance of context)},
+    {invalid: req.profile.bio=null or not(req.profile.bio instance of string) or is blank(req.profile.bio)}
   ],
   isValid: count(rules[invalid=true])=0
 }.isValid
