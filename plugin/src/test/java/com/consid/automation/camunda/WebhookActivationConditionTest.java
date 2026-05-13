@@ -38,16 +38,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  *       {@code activationCondition} is stripped before comparison.
  *   <li>The FEEL fixture is the plugin's raw output: one block per endpoint,
  *       each preceded by a {@code # <METHOD> <path>} heading.
- *   <li>BPMN-side key: {@code <inbound.method> /<inbound.context>}. So a BPMN
- *       start event with method {@code POST} and context {@code customers}
- *       matches the FEEL block headed {@code # POST /customers}. Adjust
+ *   <li>BPMN-side key: {@code <inbound.method> /inbound/<inbound.context>}. The
+ *       FEEL heading reflects the webhook runtime path ({@code /inbound/<context>})
+ *       while the BPMN only stores the bare {@code <context>}, so the test prepends
+ *       the {@code /inbound/} segment when looking up the matching block. A BPMN
+ *       start event with method {@code POST} and context {@code customers} matches
+ *       the FEEL block headed {@code # POST /inbound/customers}. Adjust
  *       {@link BpmnWebhook#endpointKey()} if your spec path scheme differs.
  * </ul>
- *
- * <p>Self-contained — only JUnit 5, AssertJ, and the JDK's XML parser. Copy as-is
- * into a consumer project. If the resource folders/files aren't present the test
- * produces zero dynamic tests (template mode), so it's safe to commit before
- * fixtures exist.
  */
 class WebhookActivationConditionTest {
 
@@ -227,8 +225,14 @@ class WebhookActivationConditionTest {
                                String method,
                                String context,
                                String activationCondition) {
+        /**
+         * Builds the lookup key matching the plugin's FEEL heading. The plugin
+         * emits {@code # <METHOD> /inbound/<context>} because the webhook runtime
+         * exposes connectors under {@code /inbound/<context>}; the BPMN side only
+         * stores the bare {@code <context>}, so the prefix is added here.
+         */
         String endpointKey() {
-            return method + " /" + context;
+            return method + " /inbound/" + context;
         }
     }
 }
