@@ -55,6 +55,7 @@ public class RequiredFieldsExtractor {
         try {
             processDirectRequiredFields(schema, requiredFields, pathPrefix);
             processDependentRequired(schema, requiredFields, pathPrefix);
+            processConditional(schema, requiredFields, pathPrefix);
             processComposition(schema.getAllOf(), requiredFields, pathPrefix, activeStack);
             processComposition(schema.getOneOf(), requiredFields, pathPrefix, activeStack);
             processComposition(schema.getAnyOf(), requiredFields, pathPrefix, activeStack);
@@ -98,19 +99,91 @@ public class RequiredFieldsExtractor {
         List<String> triggers = new ArrayList<>(dependentRequired.keySet());
         Collections.sort(triggers);
         for (String trigger : triggers) {
-            String triggerPath = buildFieldPath(pathPrefix, trigger);
+            Trigger presence = Trigger.presence(buildFieldPath(pathPrefix, trigger));
             List<String> dependents = new ArrayList<>(dependentRequired.get(trigger));
             Collections.sort(dependents);
             for (String dependent : dependents) {
-                addConditional(properties, dependent, triggerPath, pathPrefix, requiredFields);
+                addConditional(properties, dependent, presence, pathPrefix, requiredFields);
             }
         }
+    }
+
+    /**
+     * Reads the supported subset of JSON Schema {@code if}/{@code then}:
+     * a single-property predicate with {@code const} or {@code enum} plus
+     * {@code required: [<that property>]}, and a {@code then} block listing
+     * required field names. Shapes outside this subset are silently ignored —
+     * the OpenAPI spec keeps its full semantics for tooling that supports more.
+     */
+    @SuppressWarnings("rawtypes")
+    private void processConditional(Schema<?> schema,
+                                    Map<String, FieldDescriptor> requiredFields,
+                                    String pathPrefix) {
+        Schema<?> ifSchema = schema.getIf();
+        Schema<?> thenSchema = schema.getThen();
+        if (ifSchema == null || thenSchema == null) {
+            return;
+        }
+        Trigger trigger = extractValueTrigger(ifSchema, pathPrefix);
+        if (trigger == null) {
+            return;
+        }
+        List<String> thenRequired = thenSchema.getRequired();
+        if (thenRequired == null || thenRequired.isEmpty()) {
+            return;
+        }
+        Map<String, Schema> properties = schema.getProperties();
+        if (properties == null) {
+            return;
+        }
+        List<String> dependents = new ArrayList<>(thenRequired);
+        Collections.sort(dependents);
+        for (String dependent : dependents) {
+            addConditional(properties, dependent, trigger, pathPrefix, requiredFields);
+        }
+    }
+
+    /**
+     * Pulls the value trigger out of a supported {@code if} subschema, or
+     * returns null if the shape isn't one we handle.
+     */
+    @SuppressWarnings("rawtypes")
+    private Trigger extractValueTrigger(Schema<?> ifSchema, String pathPrefix) {
+        Map<String, Schema> ifProperties = ifSchema.getProperties();
+        List<String> ifRequired = ifSchema.getRequired();
+        if (ifProperties == null || ifProperties.size() != 1
+            || ifRequired == null || ifRequired.size() != 1) {
+            return null;
+        }
+        String triggerProperty = ifProperties.keySet().iterator().next();
+        if (!triggerProperty.equals(ifRequired.get(0))) {
+            return null;
+        }
+        Schema<?> predicate = ifProperties.get(triggerProperty);
+        List<Object> allowedValues = literalValues(predicate);
+        if (allowedValues.isEmpty()) {
+            return null;
+        }
+        return Trigger.value(buildFieldPath(pathPrefix, triggerProperty), allowedValues);
+    }
+
+    private List<Object> literalValues(Schema<?> predicate) {
+        if (predicate == null) {
+            return List.of();
+        }
+        if (predicate.getConst() != null) {
+            return List.of(predicate.getConst());
+        }
+        if (predicate.getEnum() != null && !predicate.getEnum().isEmpty()) {
+            return List.copyOf(predicate.getEnum());
+        }
+        return List.of();
     }
 
     @SuppressWarnings("rawtypes")
     private void addConditional(Map<String, Schema> properties,
                                 String fieldName,
-                                String triggerPath,
+                                Trigger trigger,
                                 String pathPrefix,
                                 Map<String, FieldDescriptor> requiredFields) {
         String fieldPath = buildFieldPath(pathPrefix, fieldName);
@@ -121,11 +194,11 @@ public class RequiredFieldsExtractor {
         }
         if (existing != null) {
             // Multiple triggers for the same field: OR-merge them.
-            if (existing.dependsOn().contains(triggerPath)) {
+            if (existing.dependsOn().contains(trigger)) {
                 return;
             }
-            List<String> merged = new ArrayList<>(existing.dependsOn());
-            merged.add(triggerPath);
+            List<Trigger> merged = new ArrayList<>(existing.dependsOn());
+            merged.add(trigger);
             requiredFields.put(fieldPath, new FieldDescriptor(
                 existing.type(), existing.nullable(), existing.enumValues(), merged));
             return;
@@ -133,7 +206,7 @@ public class RequiredFieldsExtractor {
         Schema<?> propertySchema = properties.get(fieldName);
         FieldDescriptor base = typeResolver.resolve(propertySchema);
         requiredFields.put(fieldPath, new FieldDescriptor(
-            base.type(), base.nullable(), base.enumValues(), List.of(triggerPath)));
+            base.type(), base.nullable(), base.enumValues(), List.of(trigger)));
     }
 
     private void processComposition(List<?> schemas, Map<String, FieldDescriptor> requiredFields,

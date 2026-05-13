@@ -28,19 +28,12 @@ public class FEELExpressionBuilder {
         return violation == null ? fieldName + "=null" : fieldName + "=null or " + violation;
     }
 
-    private String guardExpression(List<String> dependsOn) {
-        String parts = dependsOn.stream()
-            .map(path -> path + "!=null")
-            .collect(Collectors.joining(" or "));
-        return dependsOn.size() == 1 ? parts : "(" + parts + ")";
-    }
-
     private String buildViolation(String fieldName, FieldDescriptor descriptor) {
         String typeViolation = typeViolation(fieldName, descriptor.type());
         if (!descriptor.hasEnum()) {
             return typeViolation;
         }
-        String enumViolation = "not(" + fieldName + " in (" + renderEnumValues(descriptor.enumValues()) + "))";
+        String enumViolation = "not(" + fieldName + " in (" + renderLiterals(descriptor.enumValues()) + "))";
         return typeViolation == null ? enumViolation : typeViolation + " or " + enumViolation;
     }
 
@@ -58,13 +51,30 @@ public class FEELExpressionBuilder {
         };
     }
 
-    private String renderEnumValues(List<Object> enumValues) {
-        return enumValues.stream()
-            .map(FEELExpressionBuilder::renderEnumValue)
+    private String guardExpression(List<Trigger> dependsOn) {
+        String parts = dependsOn.stream()
+            .map(this::renderTrigger)
+            .collect(Collectors.joining(" or "));
+        return dependsOn.size() == 1 ? parts : "(" + parts + ")";
+    }
+
+    private String renderTrigger(Trigger trigger) {
+        if (trigger.isPresenceCheck()) {
+            return trigger.path() + "!=null";
+        }
+        if (trigger.allowedValues().size() == 1) {
+            return trigger.path() + "=" + renderLiteral(trigger.allowedValues().get(0));
+        }
+        return trigger.path() + " in (" + renderLiterals(trigger.allowedValues()) + ")";
+    }
+
+    private String renderLiterals(List<Object> values) {
+        return values.stream()
+            .map(FEELExpressionBuilder::renderLiteral)
             .collect(Collectors.joining(", "));
     }
 
-    private static String renderEnumValue(Object value) {
+    private static String renderLiteral(Object value) {
         if (value == null) {
             return "null";
         }

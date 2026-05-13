@@ -9,14 +9,14 @@ import java.util.Objects;
  * the enum set the value must belong to, and the trigger fields that make the
  * field conditionally required.
  *
- * <p>{@code dependsOn} entries are dot-paths from the request body root. The
- * field is only required when at least one of them is present; an empty list
- * means unconditionally required.
+ * <p>{@code dependsOn} entries describe the triggers that make this field
+ * required. The field is required when at least one trigger fires; an empty
+ * list means unconditionally required.
  */
 public record FieldDescriptor(FieldType type,
                               boolean nullable,
                               List<Object> enumValues,
-                              List<String> dependsOn) {
+                              List<Trigger> dependsOn) {
 
     public FieldDescriptor {
         Objects.requireNonNull(type, "type");

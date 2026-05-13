@@ -161,7 +161,7 @@ class FEELExpressionBuilderTest {
     void test_conditional_required_does_wrap_body_with_trigger_check_as_expected() {
         // given
         FieldDescriptor descriptor = new FieldDescriptor(
-            FieldType.STRING, false, List.of(), List.of("req.shippingAddress"));
+            FieldType.STRING, false, List.of(), List.of(Trigger.presence("req.shippingAddress")));
 
         // when
         String result = builder.build("shippingCarrier", descriptor);
@@ -176,13 +176,58 @@ class FEELExpressionBuilderTest {
     void test_conditional_required_with_multiple_triggers_does_or_them_as_expected() {
         // given
         FieldDescriptor descriptor = new FieldDescriptor(
-            FieldType.STRING, false, List.of(), List.of("req.a", "req.b"));
+            FieldType.STRING, false, List.of(),
+            List.of(Trigger.presence("req.a"), Trigger.presence("req.b")));
 
         // when
         String result = builder.build("c", descriptor);
 
         // then
         assertThat(result).startsWith("(req.a!=null or req.b!=null) and (");
+    }
+
+    @Test
+    void test_conditional_required_with_value_trigger_does_compare_to_literal_as_expected() {
+        // given — string value trigger
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, false, List.of(),
+            List.of(Trigger.value("req.paymentMethod", List.of("card"))));
+
+        // when
+        String result = builder.build("cardNumber", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "req.paymentMethod=\"card\" and ("
+                + "cardNumber=null or not(cardNumber instance of string) or is blank(cardNumber))");
+    }
+
+    @Test
+    void test_conditional_required_with_boolean_value_trigger_does_compare_unquoted_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, false, List.of(),
+            List.of(Trigger.value("req.flagged", List.of(true))));
+
+        // when
+        String result = builder.build("reason", descriptor);
+
+        // then
+        assertThat(result).startsWith("req.flagged=true and (");
+    }
+
+    @Test
+    void test_conditional_required_with_enum_value_trigger_does_use_in_check_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, false, List.of(),
+            List.of(Trigger.value("req.tier", List.of("gold", "platinum"))));
+
+        // when
+        String result = builder.build("discountCode", descriptor);
+
+        // then
+        assertThat(result).startsWith("req.tier in (\"gold\", \"platinum\") and (");
     }
 
     @Test
