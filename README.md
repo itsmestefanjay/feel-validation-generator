@@ -143,13 +143,14 @@ then:
 
 **Combining triggers.** Multiple triggers for the same field — whether they come from `dependentRequired`, `if`/`then`, or both — OR-merge: `(req.a!=null or req.b="value") and (…)`. A field also listed in the unconditional `required` keeps the stricter unconditional rule.
 
+**Inheritance into nested objects.** When a nested object is conditionally required, its own required fields inherit the parent's triggers, so the inner rules only fire when the parent's condition holds. When a nested object is **not** required at all (plain-optional), its inner required fields are omitted entirely.
+
 ### Restrictions
 
 Known limitations of the generator. Specs may use these constructs, but they won't be honored in the emitted FEEL:
 
 - **`if`/`then` predicates** beyond a single-property `const` or `enum` are skipped. No multi-property `if`, no nested logic, no `pattern` / range / length predicates, no `else` branch.
 - **`if`/`then` dependents must be sibling property names.** Dot-paths like `card.number` in `then.required` are not honored. Place the `if`/`then` inside the nested object's schema instead — the extractor recurses, so a nested-level `if`/`then` works correctly for its own properties.
-- **Optional nested objects.** If a nested object is *not* in its parent's `required` list but the nested schema itself declares `required: [<inner>]`, `<parent>.<inner>` is emitted as unconditional. The generator does not gate inner-required rules on parent presence.
 - **`oneOf` / `anyOf` are union-merged** rather than exclusive. Every branch's required fields are added, so the generated FEEL is stricter than the spec implies. Use `if`/`then` if you need exclusive alternatives.
 - **No value constraints beyond `enum`.** `pattern`, `minLength` / `maxLength`, `minimum` / `maximum`, `minItems` / `maxItems`, `uniqueItems`, `multipleOf`, `additionalProperties: false`, and `const` outside `if` are not enforced.
 

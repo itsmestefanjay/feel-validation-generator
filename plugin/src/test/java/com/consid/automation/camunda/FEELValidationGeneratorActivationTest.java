@@ -137,6 +137,36 @@ public class FEELValidationGeneratorActivationTest extends AbstractFEELValidatio
         );
     }
 
+    @Test
+    public void test_orders_nested_conditional_activation_does_pass_when_trigger_value_does_not_match_as_expected() throws IOException {
+        runActivationScenario(
+            "orders-no-delivery",
+            "openapi/orders-conditional-nested-api.json",
+            "payloads/orders-no-delivery-variables.json",
+            true
+        );
+    }
+
+    @Test
+    public void test_orders_nested_conditional_activation_does_fail_when_trigger_matches_and_inner_field_missing_as_expected() throws IOException {
+        runActivationScenario(
+            "orders-needs-delivery-without-address",
+            "openapi/orders-conditional-nested-api.json",
+            "payloads/orders-needs-delivery-without-address-variables.json",
+            false
+        );
+    }
+
+    @Test
+    public void test_orders_nested_conditional_activation_does_pass_when_trigger_matches_and_all_required_present_as_expected() throws IOException {
+        runActivationScenario(
+            "orders-needs-delivery-with-address",
+            "openapi/orders-conditional-nested-api.json",
+            "payloads/orders-needs-delivery-with-address-variables.json",
+            true
+        );
+    }
+
     private void runActivationScenario(String scenarioId,
                                        String openApiResource,
                                        String payloadResource,

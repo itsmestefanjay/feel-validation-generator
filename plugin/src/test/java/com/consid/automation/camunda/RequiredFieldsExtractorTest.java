@@ -290,6 +290,56 @@ class RequiredFieldsExtractorTest {
     }
 
     @Test
+    void test_extract_conditional_nested_required_propagates_trigger_to_inner_fields_as_expected() {
+        // given — when parent is conditional on a value-trigger, its inner required fields inherit the same trigger
+        Schema<?> deliverySchema = new Schema<>().type("object");
+        deliverySchema.setRequired(List.of("address"));
+        deliverySchema.addProperty("address", new Schema<>().type("string"));
+
+        Schema<?> ifSchema = new Schema<>();
+        ifSchema.addProperty("needsDelivery", new Schema<>()._const(Boolean.TRUE));
+        ifSchema.setRequired(List.of("needsDelivery"));
+        Schema<?> thenSchema = new Schema<>();
+        thenSchema.setRequired(List.of("delivery"));
+
+        Schema<?> root = new Schema<>().type("object");
+        root.addProperty("needsDelivery", new Schema<>().type("boolean"));
+        root.addProperty("delivery", deliverySchema);
+        root.setIf(ifSchema);
+        root.setThen(thenSchema);
+
+        // when
+        Map<String, FieldDescriptor> result = extractor.extract(root);
+
+        // then
+        Trigger expected = Trigger.value("needsDelivery", List.of(Boolean.TRUE));
+        assertThat(result.get("delivery").dependsOn()).containsExactly(expected);
+        assertThat(result.get("delivery.address").dependsOn())
+            .as("Inner required fields of a conditionally-required parent must inherit its trigger")
+            .containsExactly(expected);
+    }
+
+    @Test
+    void test_extract_plain_optional_nested_object_does_omit_inner_required_fields_as_expected() {
+        // given — profile is OPTIONAL at root (not in required, no triggers); inner required should not leak out
+        Schema<?> profile = new Schema<>().type("object");
+        profile.setRequired(List.of("bio"));
+        profile.addProperty("bio", new Schema<>().type("string"));
+
+        Schema<?> root = new Schema<>().type("object");
+        root.addProperty("profile", profile);
+
+        // when
+        Map<String, FieldDescriptor> result = extractor.extract(root);
+
+        // then
+        assertThat(result)
+            .as("Optional nested objects should not emit any rules for their inner required fields")
+            .doesNotContainKey("profile")
+            .doesNotContainKey("profile.bio");
+    }
+
+    @Test
     void test_extract_self_referential_schema_does_terminate_at_cycle_as_expected() {
         // given — a node that references itself; without cycle detection this would recurse forever
         Schema<?> node = new Schema<>();
