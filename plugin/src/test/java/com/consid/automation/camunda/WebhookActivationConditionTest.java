@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,9 +47,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li>BPMN-side key: {@code <inbound.method> /inbound/<inbound.context>}. The
  *       FEEL heading reflects the webhook runtime path ({@code /inbound/<context>})
  *       while the BPMN only stores the bare {@code <context>}, so the test prepends
- *       the {@code /inbound/} segment when looking up the matching block. A BPMN
- *       start event with method {@code POST} and context {@code customers} matches
- *       the FEEL block headed {@code # POST /inbound/customers}. Adjust
+ *       the {@code /inbound/} segment when looking up the matching block. The
+ *       lookup is <b>case-insensitive</b>, so a BPMN context of {@code customers}
+ *       matches a FEEL heading like {@code # POST /inbound/Customers}. Adjust
  *       {@link BpmnWebhook#endpointKey()} if your spec path scheme differs.
  * </ul>
  */
@@ -204,7 +205,9 @@ class WebhookActivationConditionTest {
 
     private Map<String, String> loadFeelByEndpoint(String resource) throws Exception {
         String content = Files.readString(resourceAsPath(resource), StandardCharsets.UTF_8);
-        Map<String, String> result = new LinkedHashMap<>();
+        // Case-insensitive keys: BPMN inbound.context may be all-lowercase while the
+        // OpenAPI path (and therefore the FEEL heading) may use mixed case.
+        Map<String, String> result = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         String currentKey = null;
         StringBuilder current = new StringBuilder();
         for (String line : content.split("\n", -1)) {
