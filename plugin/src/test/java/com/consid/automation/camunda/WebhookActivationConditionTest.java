@@ -19,20 +19,25 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Verifies that every BPMN process under {@link #BPMN_RESOURCE_DIR} with a Camunda
- * inbound-webhook start event has an {@code activationCondition} matching the
- * FEEL the plugin emitted into {@link #EXPECTED_FEEL_RESOURCE}.
+ * inbound webhook (start event or intermediate catch event) has an
+ * {@code activationCondition} matching the FEEL the plugin emitted into
+ * {@link #EXPECTED_FEEL_RESOURCE}.
  *
  * <p><b>Conventions</b>:
  * <ul>
- *   <li>BPMN: start event carries
- *       {@code zeebe:modelerTemplate="io.camunda.connectors.webhook.WebhookConnectorStartMessage.v1"}.
- *   <li>The start event's {@code bpmn:extensionElements/zeebe:properties} block
+ *   <li>BPMN: the event carries one of
+ *       {@code zeebe:modelerTemplate="io.camunda.connectors.webhook.WebhookConnectorStartMessage.v1"}
+ *       (start event) or
+ *       {@code zeebe:modelerTemplate="io.camunda.webhook.WebhookConnectorIntermediate.v1"}
+ *       (intermediate catch event).
+ *   <li>The event's {@code bpmn:extensionElements/zeebe:properties} block
  *       supplies {@code inbound.method}, {@code inbound.context} and
  *       {@code activationCondition}. The FEEL marker {@code =} prefix on
  *       {@code activationCondition} is stripped before comparison.
@@ -49,9 +54,20 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class WebhookActivationConditionTest {
 
-    /** Element value of {@code zeebe:modelerTemplate} that flags a webhook start event. */
-    private static final String WEBHOOK_TEMPLATE_ID =
-        "io.camunda.connectors.webhook.WebhookConnectorStartMessage.v1";
+    /**
+     * {@code zeebe:modelerTemplate} substrings that identify a webhook-triggered
+     * event — start event or intermediate catch event flavours.
+     */
+    private static final Set<String> WEBHOOK_TEMPLATE_IDS = Set.of(
+        "io.camunda.connectors.webhook.WebhookConnectorStartMessage.v1",
+        "io.camunda.webhook.WebhookConnectorIntermediate.v1"
+    );
+
+    /** BPMN element local-names that can carry a webhook connector template. */
+    private static final Set<String> WEBHOOK_EVENT_LOCAL_NAMES = Set.of(
+        "startEvent",
+        "intermediateCatchEvent"
+    );
 
     private static final String BPMN_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL";
     private static final String ZEEBE_NS = "http://camunda.org/schema/zeebe/1.0";
@@ -73,8 +89,8 @@ class WebhookActivationConditionTest {
         List<BpmnWebhook> webhooks = loadWebhooks(BPMN_RESOURCE_DIR);
 
         assertThat(webhooks)
-            .as("No webhook start events discovered under '%s' — check the folder and that "
-                + "modelerTemplate contains '%s'", BPMN_RESOURCE_DIR, WEBHOOK_TEMPLATE_ID)
+            .as("No webhook events discovered under '%s' — check the folder and that "
+                + "modelerTemplate contains one of %s", BPMN_RESOURCE_DIR, WEBHOOK_TEMPLATE_IDS)
             .isNotEmpty();
 
         List<DynamicTest> tests = new ArrayList<>();
@@ -91,10 +107,10 @@ class WebhookActivationConditionTest {
                             key, EXPECTED_FEEL_RESOURCE, expectedByEndpoint.keySet())
                         .isNotNull();
                     assertThat(normalize(stripFeelMarker(webhook.activationCondition())))
-                        .as("activationCondition in %s (startEvent '%s') drifted from the FEEL "
+                        .as("activationCondition in %s (event '%s') drifted from the FEEL "
                             + "generated for '# %s'. Regenerate via `mvn ... generate-feel` and "
                             + "paste the new block into the BPMN.",
-                            webhook.bpmnFile(), webhook.startEventId(), key)
+                            webhook.bpmnFile(), webhook.eventId(), key)
                         .isEqualTo(normalize(expected));
                 }));
         }
@@ -114,32 +130,46 @@ class WebhookActivationConditionTest {
                 .toList();
             for (Path file : bpmnFiles) {
                 Document doc = builder.parse(file.toFile());
-                NodeList startEvents = doc.getElementsByTagNameNS(BPMN_NS, "startEvent");
-                for (int i = 0; i < startEvents.getLength(); i++) {
-                    Element startEvent = (Element) startEvents.item(i);
-                    String template = startEvent.getAttributeNS(ZEEBE_NS, "modelerTemplate");
-                    if (!template.contains(WEBHOOK_TEMPLATE_ID)) {
-                        continue;
-                    }
-                    Map<String, String> properties = readZeebeProperties(startEvent);
-                    String fileName = file.getFileName().toString();
-                    String startEventId = startEvent.getAttribute("id");
-                    String method = require(properties.get("inbound.method"),
-                        "inbound.method", fileName, startEventId);
-                    String context = require(properties.get("inbound.context"),
-                        "inbound.context", fileName, startEventId);
-                    String activation = require(properties.get("activationCondition"),
-                        "activationCondition", fileName, startEventId);
-                    webhooks.add(new BpmnWebhook(fileName, startEventId, method, context, activation));
+                String fileName = file.getFileName().toString();
+                for (String localName : WEBHOOK_EVENT_LOCAL_NAMES) {
+                    collectWebhookEvents(doc, localName, fileName, webhooks);
                 }
             }
         }
         return webhooks;
     }
 
-    private Map<String, String> readZeebeProperties(Element startEvent) {
+    private void collectWebhookEvents(Document doc, String localName, String fileName,
+                                      List<BpmnWebhook> sink) {
+        NodeList events = doc.getElementsByTagNameNS(BPMN_NS, localName);
+        for (int i = 0; i < events.getLength(); i++) {
+            Element event = (Element) events.item(i);
+            String template = event.getAttributeNS(ZEEBE_NS, "modelerTemplate");
+            if (!hasWebhookTemplate(template)) {
+                continue;
+            }
+            String eventId = event.getAttribute("id");
+            Map<String, String> properties = readZeebeProperties(event);
+            String method = require(properties.get("inbound.method"),
+                "inbound.method", fileName, eventId);
+            String context = require(properties.get("inbound.context"),
+                "inbound.context", fileName, eventId);
+            String activation = require(properties.get("activationCondition"),
+                "activationCondition", fileName, eventId);
+            sink.add(new BpmnWebhook(fileName, eventId, method, context, activation));
+        }
+    }
+
+    private static boolean hasWebhookTemplate(String template) {
+        if (template.isEmpty()) {
+            return false;
+        }
+        return WEBHOOK_TEMPLATE_IDS.stream().anyMatch(template::contains);
+    }
+
+    private Map<String, String> readZeebeProperties(Element event) {
         Map<String, String> props = new LinkedHashMap<>();
-        NodeList propertyElements = startEvent.getElementsByTagNameNS(ZEEBE_NS, "property");
+        NodeList propertyElements = event.getElementsByTagNameNS(ZEEBE_NS, "property");
         for (int i = 0; i < propertyElements.getLength(); i++) {
             Element prop = (Element) propertyElements.item(i);
             String name = prop.getAttribute("name");
@@ -150,10 +180,10 @@ class WebhookActivationConditionTest {
         return props;
     }
 
-    private static String require(String value, String name, String file, String startEventId) {
+    private static String require(String value, String name, String file, String eventId) {
         assertThat(value)
-            .as("zeebe:property '%s' missing or empty in %s (startEvent '%s')",
-                name, file, startEventId)
+            .as("zeebe:property '%s' missing or empty in %s (event '%s')",
+                name, file, eventId)
             .isNotNull()
             .isNotBlank();
         return value;
@@ -221,7 +251,7 @@ class WebhookActivationConditionTest {
     }
 
     private record BpmnWebhook(String bpmnFile,
-                               String startEventId,
+                               String eventId,
                                String method,
                                String context,
                                String activationCondition) {
