@@ -139,7 +139,7 @@ then:
   or is blank(req.cardNumber))}
 ```
 
-`enum` predicates produce an `in (…)` check, e.g. `req.tier in ("gold", "platinum") and (…)`.
+`enum` predicates produce an `in (…)` check, e.g. `req.tier in ("gold", "platinum") and (…)`. Boolean `const` triggers render compactly as the bare path: `const: true` becomes `req.flag and (…)`, `const: false` becomes `not(req.flag) and (…)`.
 
 **Combining triggers.** Multiple triggers for the same field — whether they come from `dependentRequired`, `if`/`then`, or both — OR-merge: `(req.a!=null or req.b="value") and (…)`. A field also listed in the unconditional `required` keeps the stricter unconditional rule.
 

@@ -203,7 +203,7 @@ class FEELExpressionBuilderTest {
     }
 
     @Test
-    void test_conditional_required_with_boolean_value_trigger_does_compare_unquoted_as_expected() {
+    void test_conditional_required_with_boolean_true_trigger_does_render_as_bare_path_as_expected() {
         // given
         FieldDescriptor descriptor = new FieldDescriptor(
             FieldType.STRING, false, List.of(),
@@ -212,8 +212,22 @@ class FEELExpressionBuilderTest {
         // when
         String result = builder.build("reason", descriptor);
 
+        // then — bare path is shorter than req.flagged=true and equivalent under all inputs
+        assertThat(result).startsWith("req.flagged and (");
+    }
+
+    @Test
+    void test_conditional_required_with_boolean_false_trigger_does_render_as_not_path_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, false, List.of(),
+            List.of(Trigger.value("req.flagged", List.of(false))));
+
+        // when
+        String result = builder.build("reason", descriptor);
+
         // then
-        assertThat(result).startsWith("req.flagged=true and (");
+        assertThat(result).startsWith("not(req.flagged) and (");
     }
 
     @Test

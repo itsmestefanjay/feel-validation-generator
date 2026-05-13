@@ -63,7 +63,16 @@ public class FEELExpressionBuilder {
             return trigger.path() + "!=null";
         }
         if (trigger.allowedValues().size() == 1) {
-            return trigger.path() + "=" + renderLiteral(trigger.allowedValues().get(0));
+            Object value = trigger.allowedValues().get(0);
+            // Booleans render as bare path / not(path) since FEEL treats them identically to the
+            // explicit =true / =false comparison, including under null inputs.
+            if (Boolean.TRUE.equals(value)) {
+                return trigger.path();
+            }
+            if (Boolean.FALSE.equals(value)) {
+                return "not(" + trigger.path() + ")";
+            }
+            return trigger.path() + "=" + renderLiteral(value);
         }
         return trigger.path() + " in (" + renderLiterals(trigger.allowedValues()) + ")";
     }
