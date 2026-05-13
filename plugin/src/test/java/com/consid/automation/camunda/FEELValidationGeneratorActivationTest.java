@@ -107,6 +107,36 @@ public class FEELValidationGeneratorActivationTest extends AbstractFEELValidatio
         );
     }
 
+    @Test
+    public void test_customers_value_conditional_activation_does_pass_when_trigger_value_does_not_match_as_expected() throws IOException {
+        runActivationScenario(
+            "customers-value-conditional-invoice",
+            "openapi/customers-value-conditional-api.json",
+            "payloads/customers-value-conditional-invoice-variables.json",
+            true
+        );
+    }
+
+    @Test
+    public void test_customers_value_conditional_activation_does_fail_when_trigger_value_matches_and_dependent_missing_as_expected() throws IOException {
+        runActivationScenario(
+            "customers-value-conditional-card-without-number",
+            "openapi/customers-value-conditional-api.json",
+            "payloads/customers-value-conditional-card-without-number-variables.json",
+            false
+        );
+    }
+
+    @Test
+    public void test_customers_value_conditional_activation_does_pass_when_trigger_value_matches_and_dependent_present_as_expected() throws IOException {
+        runActivationScenario(
+            "customers-value-conditional-card-with-number",
+            "openapi/customers-value-conditional-api.json",
+            "payloads/customers-value-conditional-card-with-number-variables.json",
+            true
+        );
+    }
+
     private void runActivationScenario(String scenarioId,
                                        String openApiResource,
                                        String payloadResource,
