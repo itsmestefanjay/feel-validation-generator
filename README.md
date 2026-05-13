@@ -114,6 +114,36 @@ Generates:
     or is blank(req.shippingCarrier)) }
 ```
 
+### Value-conditional requirements (`if`/`then`)
+
+A supported subset of JSON Schema's `if`/`then` lets you require a field only when **another field equals a specific value**. The generator handles a single-property predicate with `const` or `enum`; anything else (multi-property `if`, nested logic, regex/range predicates, `else` branches) is silently skipped.
+
+```yaml
+properties:
+  paymentMethod: { type: string, enum: [card, invoice] }
+  cardNumber: { type: string }
+if:
+  properties:
+    paymentMethod: { const: card }
+  required: [paymentMethod]
+then:
+  required: [cardNumber]
+```
+
+Generates:
+
+```feel
+{ id: "cardNumber-invalid",
+  invalid: req.paymentMethod="card" and (
+    req.cardNumber=null
+    or not(req.cardNumber instance of string)
+    or is blank(req.cardNumber)) }
+```
+
+`const` literals are rendered as FEEL literals: strings are quoted, numbers and booleans are emitted bare, `null` is `null`. `enum` produces an `in (…)` check, e.g. `req.tier in ("gold", "platinum")`.
+
+Multiple triggers (mixing `dependentRequired` and `if`/`then` for the same field) OR-merge: `(req.x!=null or req.y="value") and (…)`. A field that's also unconditionally required keeps the unconditional rule and ignores triggers.
+
 ## Output modes
 
 ### Activation condition (`addResponse=false`)
