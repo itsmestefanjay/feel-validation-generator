@@ -1,0 +1,60 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Value-Conditional API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/customers/payment": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "customerId",
+                  "paymentMethod"
+                ],
+                "properties": {
+                  "customerId": {
+                    "type": "string"
+                  },
+                  "paymentMethod": {
+                    "type": "string",
+                    "enum": [
+                      "card",
+                      "invoice"
+                    ]
+                  },
+                  "cardNumber": {
+                    "type": "string"
+                  },
+                  "invoiceEmail": {
+                    "type": "string"
+                  }
+                },
+                "if": {
+                  "properties": {
+                    "paymentMethod": {
+                      "const": "card"
+                    }
+                  },
+                  "required": [
+                    "paymentMethod"
+                  ]
+                },
+                "then": {
+                  "required": [
+                    "cardNumber"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

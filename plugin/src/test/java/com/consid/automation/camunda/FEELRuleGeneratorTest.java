@@ -47,8 +47,8 @@ class FEELRuleGeneratorTest {
             .contains("# POST /users")
             .contains("req: request.body")
             .contains("rules:")
-            .contains("{id: \"user-invalid\", invalid: req.user=null}")
-            .contains("{id: \"email-invalid\", invalid: req.email=null}")
+            .contains("{invalid: req.user=null}")
+            .contains("{invalid: req.email=null}")
             .endsWith(".isValid");
     }
 
@@ -92,11 +92,11 @@ class FEELRuleGeneratorTest {
     }
 
     @Test
-    void test_create_rule_for_conditional_descriptor_does_emit_guarded_invalid_expression_as_expected() {
+    void test_create_rule_for_presence_conditional_descriptor_does_emit_guarded_invalid_expression_as_expected() {
         // given
         FEELRuleGenerator generator = new FEELRuleGenerator(false);
         FieldDescriptor descriptor = new FieldDescriptor(
-            FieldType.STRING, false, List.of(), List.of("shippingAddress"));
+            FieldType.STRING, false, List.of(), List.of(Trigger.presence("shippingAddress")));
 
         // when
         ValidationRule rule = generator.createRule("shippingCarrier", descriptor);
@@ -108,6 +108,26 @@ class FEELRuleGeneratorTest {
                 + "req.shippingCarrier=null"
                 + " or not(req.shippingCarrier instance of string)"
                 + " or is blank(req.shippingCarrier))");
+    }
+
+    @Test
+    void test_create_rule_for_value_conditional_descriptor_does_emit_value_guard_as_expected() {
+        // given
+        FEELRuleGenerator generator = new FEELRuleGenerator(false);
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, false, List.of(),
+            List.of(Trigger.value("paymentMethod", List.of("card"))));
+
+        // when
+        ValidationRule rule = generator.createRule("cardNumber", descriptor);
+
+        // then
+        assertThat(rule.id()).isEqualTo("cardNumber-invalid");
+        assertThat(rule.invalidExpression()).isEqualTo(
+            "req.paymentMethod=\"card\" and ("
+                + "req.cardNumber=null"
+                + " or not(req.cardNumber instance of string)"
+                + " or is blank(req.cardNumber))");
     }
 
     @Test

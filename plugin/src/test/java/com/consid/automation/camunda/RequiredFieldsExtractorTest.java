@@ -172,7 +172,7 @@ class RequiredFieldsExtractorTest {
         assertThat(carrier).isNotNull();
         assertThat(carrier.type()).isEqualTo(FieldType.STRING);
         assertThat(carrier.isConditional()).isTrue();
-        assertThat(carrier.dependsOn()).containsExactly("shippingAddress");
+        assertThat(carrier.dependsOn()).containsExactly(Trigger.presence("shippingAddress"));
     }
 
     @Test
@@ -211,7 +211,132 @@ class RequiredFieldsExtractorTest {
         // then
         assertThat(result.get("c").dependsOn())
             .as("c should be triggered by either a or b being present")
-            .containsExactlyInAnyOrder("a", "b");
+            .containsExactlyInAnyOrder(Trigger.presence("a"), Trigger.presence("b"));
+    }
+
+    @Test
+    void test_extract_if_then_with_const_does_mark_field_with_value_trigger_as_expected() {
+        // given — "if paymentMethod = 'card', then cardNumber is required"
+        Schema<?> ifSchema = new Schema<>();
+        ifSchema.addProperty("paymentMethod", new Schema<>()._const("card"));
+        ifSchema.setRequired(List.of("paymentMethod"));
+        Schema<?> thenSchema = new Schema<>();
+        thenSchema.setRequired(List.of("cardNumber"));
+
+        Schema<?> schema = new Schema<>();
+        schema.addProperty("paymentMethod", new Schema<>().type("string"));
+        schema.addProperty("cardNumber", new Schema<>().type("string"));
+        schema.setIf(ifSchema);
+        schema.setThen(thenSchema);
+
+        // when
+        Map<String, FieldDescriptor> result = extractor.extract(schema);
+
+        // then
+        FieldDescriptor cardNumber = result.get("cardNumber");
+        assertThat(cardNumber).isNotNull();
+        assertThat(cardNumber.isConditional()).isTrue();
+        assertThat(cardNumber.dependsOn())
+            .containsExactly(Trigger.value("paymentMethod", List.of("card")));
+    }
+
+    @Test
+    void test_extract_if_then_with_enum_does_mark_field_with_multi_value_trigger_as_expected() {
+        // given — "if tier in [gold, platinum], then discountCode is required"
+        Schema<?> ifSchema = new Schema<>();
+        ifSchema.addProperty("tier", new Schema<>()._enum(List.of("gold", "platinum")));
+        ifSchema.setRequired(List.of("tier"));
+        Schema<?> thenSchema = new Schema<>();
+        thenSchema.setRequired(List.of("discountCode"));
+
+        Schema<?> schema = new Schema<>();
+        schema.addProperty("tier", new Schema<>().type("string"));
+        schema.addProperty("discountCode", new Schema<>().type("string"));
+        schema.setIf(ifSchema);
+        schema.setThen(thenSchema);
+
+        // when
+        Map<String, FieldDescriptor> result = extractor.extract(schema);
+
+        // then
+        assertThat(result.get("discountCode").dependsOn())
+            .containsExactly(Trigger.value("tier", List.of("gold", "platinum")));
+    }
+
+    @Test
+    void test_extract_if_then_with_unsupported_shape_does_skip_silently_as_expected() {
+        // given — multi-property if is outside the supported subset
+        Schema<?> ifSchema = new Schema<>();
+        ifSchema.addProperty("a", new Schema<>()._const("x"));
+        ifSchema.addProperty("b", new Schema<>()._const("y"));
+        ifSchema.setRequired(List.of("a", "b"));
+        Schema<?> thenSchema = new Schema<>();
+        thenSchema.setRequired(List.of("c"));
+
+        Schema<?> schema = new Schema<>();
+        schema.addProperty("a", new Schema<>().type("string"));
+        schema.addProperty("b", new Schema<>().type("string"));
+        schema.addProperty("c", new Schema<>().type("string"));
+        schema.setIf(ifSchema);
+        schema.setThen(thenSchema);
+
+        // when
+        Map<String, FieldDescriptor> result = extractor.extract(schema);
+
+        // then
+        assertThat(result)
+            .as("Unsupported if-shapes should not introduce conditional rules")
+            .doesNotContainKey("c");
+    }
+
+    @Test
+    void test_extract_conditional_nested_required_propagates_trigger_to_inner_fields_as_expected() {
+        // given — when parent is conditional on a value-trigger, its inner required fields inherit the same trigger
+        Schema<?> deliverySchema = new Schema<>().type("object");
+        deliverySchema.setRequired(List.of("address"));
+        deliverySchema.addProperty("address", new Schema<>().type("string"));
+
+        Schema<?> ifSchema = new Schema<>();
+        ifSchema.addProperty("needsDelivery", new Schema<>()._const(Boolean.TRUE));
+        ifSchema.setRequired(List.of("needsDelivery"));
+        Schema<?> thenSchema = new Schema<>();
+        thenSchema.setRequired(List.of("delivery"));
+
+        Schema<?> root = new Schema<>().type("object");
+        root.addProperty("needsDelivery", new Schema<>().type("boolean"));
+        root.addProperty("delivery", deliverySchema);
+        root.setIf(ifSchema);
+        root.setThen(thenSchema);
+
+        // when
+        Map<String, FieldDescriptor> result = extractor.extract(root);
+
+        // then
+        Trigger expected = Trigger.value("needsDelivery", List.of(Boolean.TRUE));
+        assertThat(result.get("delivery").dependsOn()).containsExactly(expected);
+        assertThat(result.get("delivery.address").dependsOn())
+            .as("Inner required fields of a conditionally-required parent must inherit its trigger")
+            .containsExactly(expected);
+    }
+
+    @Test
+    void test_extract_plain_optional_nested_object_does_omit_inner_required_fields_as_expected() {
+        // given — profile is OPTIONAL at root (not in required, no triggers); inner required should not leak out
+        Schema<?> profile = new Schema<>().type("object");
+        profile.setRequired(List.of("bio"));
+        profile.addProperty("bio", new Schema<>().type("string"));
+
+        Schema<?> root = new Schema<>().type("object");
+        root.addProperty("profile", profile);
+
+        // when
+        Map<String, FieldDescriptor> result = extractor.extract(root);
+
+        // then
+        assertThat(result)
+            .as("Optional nested objects should not emit any rules for their inner required fields")
+            .doesNotContainKey("profile")
+            .doesNotContainKey("profile.bio");
     }
 
     @Test
