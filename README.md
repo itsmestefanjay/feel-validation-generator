@@ -68,11 +68,11 @@ FEELValidationGenerator.builder()
     .generate();
 ```
 
-## Type mapping
+## OpenAPI support
 
-Each required field from the resolved schema turns into one FEEL rule. The
-violation expression is wrapped with `field=null or …` for required fields and
-`field!=null and (…)` when the schema marks the field nullable.
+Each required field in the resolved schema turns into one FEEL rule. The violation expression is `field=null or <type-violation>` by default; modifiers and conditionals adjust this shape.
+
+### Data types
 
 | OpenAPI type / format | FEEL check |
 |---|---|
@@ -86,15 +86,22 @@ violation expression is wrapped with `field=null or …` for required fields and
 | `type: object` | `not(X instance of context)` |
 | unrecognised / missing | `null`-check only |
 
-Additional constraints applied on top of the type check:
+Two modifiers layer on top of the type check:
 
-- **`enum`** — appends `or not(X in (…))` with quoted strings, bare numbers, bare booleans.
-- **`nullable: true`** (OpenAPI 3.0) and **`type: […, "null"]`** (OpenAPI 3.1) — switch from required-form to `X!=null and (…)`.
-- **`dependentRequired`** — wraps the rule in `req.<trigger>!=null and (…)`, so the field is only required when its trigger field is present. Multiple triggers OR-merge: `(req.a!=null or req.b!=null) and (…)`. A field listed in both `required` and `dependentRequired` keeps the unconditional requirement.
+- **`enum`** — appends `or not(X in (…))` to the violation. Strings are quoted, numbers and booleans emitted bare, `null` is `null`.
+- **`nullable: true`** (OpenAPI 3.0) / **`type: [<t>, "null"]`** (OpenAPI 3.1) — flips the rule from `field=null or (…)` to `field!=null and (…)`, so a missing value is fine but a malformed one still fails.
 
-Compositions (`allOf` / `oneOf` / `anyOf`) and `$ref` are resolved. Shared component schemas referenced from multiple paths are expanded at every reference. A `$ref` that can't be resolved fails the build.
+### References & composition
 
-Example `dependentRequired` shape:
+- **`$ref`** — resolved transparently against `#/components/schemas/*`. A component referenced from multiple paths is expanded at every reference. A `$ref` that can't be resolved fails the build (no `UNKNOWN` rule fallback).
+- **`allOf`** — every branch's `required` list is merged into the parent. Use for "this schema is everything in A plus everything in B".
+- **`oneOf` / `anyOf`** — currently union-merged: required fields from every branch are accumulated. See *Restrictions* below.
+
+### Conditional requirements
+
+The basic `required: [<field>, …]` list at a given schema level produces unconditional rules. On top of that, two JSON Schema keywords let you scope a requirement to a runtime condition.
+
+**`dependentRequired`** — *"if this field is present, those fields are also required."*
 
 ```yaml
 properties:
@@ -104,8 +111,6 @@ dependentRequired:
   shippingAddress: [shippingCarrier]
 ```
 
-Generates:
-
 ```feel
 { id: "shippingCarrier-invalid",
   invalid: req.shippingAddress!=null and (
@@ -114,9 +119,7 @@ Generates:
     or is blank(req.shippingCarrier)) }
 ```
 
-### Value-conditional requirements (`if`/`then`)
-
-A supported subset of JSON Schema's `if`/`then` lets you require a field only when **another field equals a specific value**. The generator handles a single-property predicate with `const` or `enum`; anything else (multi-property `if`, nested logic, regex/range predicates, `else` branches) is silently skipped.
+**`if`/`then`** *(value-conditional)* — *"if this field equals a specific value, those fields are required."* Supported subset: a single-property predicate using `const` or `enum`, with `required: [<that property>]` inside the `if`. Anything outside the subset is silently skipped.
 
 ```yaml
 properties:
@@ -130,8 +133,6 @@ then:
   required: [cardNumber]
 ```
 
-Generates:
-
 ```feel
 { id: "cardNumber-invalid",
   invalid: req.paymentMethod="card" and (
@@ -140,9 +141,19 @@ Generates:
     or is blank(req.cardNumber)) }
 ```
 
-`const` literals are rendered as FEEL literals: strings are quoted, numbers and booleans are emitted bare, `null` is `null`. `enum` produces an `in (…)` check, e.g. `req.tier in ("gold", "platinum")`.
+`enum` predicates produce an `in (…)` check, e.g. `req.tier in ("gold", "platinum") and (…)`.
 
-Multiple triggers (mixing `dependentRequired` and `if`/`then` for the same field) OR-merge: `(req.x!=null or req.y="value") and (…)`. A field that's also unconditionally required keeps the unconditional rule and ignores triggers.
+**Combining triggers.** Multiple triggers for the same field — whether they come from `dependentRequired`, `if`/`then`, or both — OR-merge: `(req.a!=null or req.b="value") and (…)`. A field also listed in the unconditional `required` keeps the stricter unconditional rule.
+
+### Restrictions
+
+Known limitations of the generator. Specs may use these constructs, but they won't be honored in the emitted FEEL:
+
+- **`if`/`then` predicates** beyond a single-property `const` or `enum` are skipped. No multi-property `if`, no nested logic, no `pattern` / range / length predicates, no `else` branch.
+- **`if`/`then` dependents must be sibling property names.** Dot-paths like `card.number` in `then.required` are not honored. Place the `if`/`then` inside the nested object's schema instead — the extractor recurses, so a nested-level `if`/`then` works correctly for its own properties.
+- **Optional nested objects.** If a nested object is *not* in its parent's `required` list but the nested schema itself declares `required: [<inner>]`, `<parent>.<inner>` is emitted as unconditional. The generator does not gate inner-required rules on parent presence.
+- **`oneOf` / `anyOf` are union-merged** rather than exclusive. Every branch's required fields are added, so the generated FEEL is stricter than the spec implies. Use `if`/`then` if you need exclusive alternatives.
+- **No value constraints beyond `enum`.** `pattern`, `minLength` / `maxLength`, `minimum` / `maximum`, `minItems` / `maxItems`, `uniqueItems`, `multipleOf`, `additionalProperties: false`, and `const` outside `if` are not enforced.
 
 ## Output modes
 
