@@ -205,6 +205,32 @@ Context expression intended for the connector's `responseExpression` field. The 
 
 ![response expression example](responseExpression.png)
 
+## Pinning BPMN to the generated FEEL
+
+For consumer projects that own both the OpenAPI spec and the BPMN process models — typically a Camunda connector-runtime project — a self-contained helper test under [plugin/src/test/java/com/consid/automation/camunda/WebhookActivationConditionTest.java](plugin/src/test/java/com/consid/automation/camunda/WebhookActivationConditionTest.java) verifies that every webhook event's `activationCondition` in BPMN matches the FEEL block the plugin emitted. Copy the file as-is into the consumer project's `src/test/java/…`.
+
+What it does:
+
+- Walks every `*.bpmn` under `src/test/resources/bpmn/` recursively.
+- Picks `bpmn:startEvent` carrying `zeebe:modelerTemplate="io.camunda.connectors.webhook.WebhookConnectorStartMessage.v1"` and `bpmn:intermediateCatchEvent` carrying `io.camunda.webhook.WebhookConnectorIntermediate.v1`.
+- Reads each event's `inbound.method`, `inbound.context`, and `activationCondition` from `bpmn:extensionElements/zeebe:properties`.
+- Compares the activation condition (with Camunda's leading `=` FEEL marker stripped) against the matching block in `src/test/resources/feel/expected-activation.feel`.
+
+Conventions, encoded in the test:
+
+- Lookup key is `<inbound.method> /inbound/<inbound.context>` (case-insensitive), matching the plugin's `# <METHOD> /inbound/<context>` heading. The BPMN side stores only the bare context; the `/inbound/` prefix is added when looking up.
+- Required dependencies: JUnit 5, AssertJ, JDK XML parser. No project-specific imports.
+
+Wire the plugin to emit FEEL straight to the path the test reads:
+
+```xml
+<outputFile>${project.basedir}/src/test/resources/feel/expected-activation.feel</outputFile>
+```
+
+After `mvn generate-resources` (or any phase that runs the plugin), `mvn test` produces one dynamic test per webhook event. A drift between BPMN and the generated FEEL fails with a message pointing at the BPMN file, event id, and endpoint key. If your spec paths don't share segments with `inbound.context`, edit the inner record's `endpointKey()` to match your scheme.
+
+If the BPMN folder or FEEL fixture isn't present yet (e.g., a fresh checkout before the plugin has run), the test factory returns zero tests instead of failing — so it's safe to commit the helper before the fixtures exist.
+
 ## Build
 
 ```bash
