@@ -175,8 +175,8 @@ public class FEELExpressionBuilder {
             FeelLiteral value = trigger.allowedValues().get(0);
             // Booleans render as bare path / not(path) since FEEL treats them identically to the
             // explicit =true / =false comparison, including under null inputs.
-            if (value instanceof FeelBoolean(boolean b)) {
-                return b ? trigger.path() : "not(" + trigger.path() + ")";
+            if (value instanceof FeelBoolean bool) {
+                return bool.value() ? trigger.path() : "not(" + trigger.path() + ")";
             }
             return trigger.path() + "=" + value.render();
         }
