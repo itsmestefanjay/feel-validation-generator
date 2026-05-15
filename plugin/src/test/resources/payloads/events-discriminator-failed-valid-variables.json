@@ -1,0 +1,4 @@
+{
+  "type": "invoice.failed",
+  "failureReason": "Card declined"
+}

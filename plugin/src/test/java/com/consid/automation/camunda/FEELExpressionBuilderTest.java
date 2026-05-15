@@ -358,6 +358,83 @@ class FEELExpressionBuilderTest {
     }
 
     @Test
+    void test_array_expression_with_items_does_emit_some_satisfies_clause_as_expected() {
+        // given — array of strings: violation when any element isn't a string
+        FieldDescriptor items = FieldDescriptor.of(FieldType.STRING);
+        ArrayConstraints constraints = new ArrayConstraints(null, null, items, java.util.Map.of());
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.ARRAY, false, List.of(), List.of(), constraints, StringConstraints.NONE);
+
+        // when
+        String result = builder.build("tags", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "tags=null or not(tags instance of list)"
+                + " or (some e in tags satisfies (e=null or not(e instance of string)))");
+    }
+
+    @Test
+    void test_array_expression_with_typed_items_constraints_does_propagate_inner_checks_as_expected() {
+        // given — array of strings with a minLength constraint on each element
+        FieldDescriptor items = new FieldDescriptor(
+            FieldType.STRING, false, List.of(), List.of(),
+            ArrayConstraints.NONE,
+            new StringConstraints(2, null, null));
+        ArrayConstraints constraints = new ArrayConstraints(null, null, items, java.util.Map.of());
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.ARRAY, false, List.of(), List.of(), constraints, StringConstraints.NONE);
+
+        // when
+        String result = builder.build("codes", descriptor);
+
+        // then — each element's own constraints fold into the satisfies body
+        assertThat(result).contains("(some e in codes satisfies (e=null or not(e instance of string) or string length(e)<2))");
+    }
+
+    @Test
+    void test_array_expression_with_object_items_required_children_does_emit_per_field_checks_as_expected() {
+        // given — array of objects {id, name} both required; each element's required children
+        // appear inside the satisfies body with `e.` paths
+        FieldDescriptor items = FieldDescriptor.of(FieldType.OBJECT);
+        java.util.Map<String, FieldDescriptor> itemRequired = new java.util.LinkedHashMap<>();
+        itemRequired.put("id", FieldDescriptor.of(FieldType.STRING));
+        itemRequired.put("name", FieldDescriptor.of(FieldType.STRING));
+        ArrayConstraints constraints = new ArrayConstraints(null, null, items, itemRequired);
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.ARRAY, false, List.of(), List.of(), constraints, StringConstraints.NONE);
+
+        // when
+        String result = builder.build("lineItems", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "lineItems=null or not(lineItems instance of list)"
+                + " or (some e in lineItems satisfies ("
+                + "e=null or not(e instance of context)"
+                + " or e.id=null or not(e.id instance of string)"
+                + " or e.name=null or not(e.name instance of string)))");
+    }
+
+    @Test
+    void test_array_expression_with_items_and_min_items_does_combine_bounds_and_element_check_as_expected() {
+        // given — array of strings, must be non-empty, each element must be a string
+        FieldDescriptor items = FieldDescriptor.of(FieldType.STRING);
+        ArrayConstraints constraints = new ArrayConstraints(1, null, items, java.util.Map.of());
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.ARRAY, false, List.of(), List.of(), constraints, StringConstraints.NONE);
+
+        // when
+        String result = builder.build("tags", descriptor);
+
+        // then — bounds first, then element check
+        assertThat(result).isEqualTo(
+            "tags=null or not(tags instance of list)"
+                + " or count(tags)<1"
+                + " or (some e in tags satisfies (e=null or not(e instance of string)))");
+    }
+
+    @Test
     void test_nullable_array_with_min_items_does_only_check_when_present_as_expected() {
         // given
         FieldDescriptor descriptor = new FieldDescriptor(
@@ -378,6 +455,24 @@ class FEELExpressionBuilderTest {
 
         // then
         assertThat(result).isEqualTo("metadata=null or not(metadata instance of context)");
+    }
+
+    @Test
+    void test_object_expression_with_additional_properties_false_does_emit_keys_check_as_expected() {
+        // given
+        ObjectConstraints constraints = new ObjectConstraints(java.util.Set.of("id", "name"));
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.OBJECT, false, List.of(), List.of(),
+            ArrayConstraints.NONE, StringConstraints.NONE, NumberConstraints.NONE,
+            constraints);
+
+        // when
+        String result = builder.build("profile", descriptor);
+
+        // then — wrapped in outer parens (same defensive reason as `some`: `every` is greedy)
+        assertThat(result).isEqualTo(
+            "profile=null or not(profile instance of context)"
+                + " or (not(every k in get entries(profile).key satisfies (k in (\"id\", \"name\"))))");
     }
 
     @Test

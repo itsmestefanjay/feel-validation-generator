@@ -13,9 +13,9 @@ import java.util.Objects;
  * required. The field is required when at least one trigger fires; an empty
  * list means unconditionally required.
  *
- * <p>{@code arrayConstraints} / {@code stringConstraints} / {@code numberConstraints}
- * default to their NONE sentinels and are only consulted by the expression
- * builder when {@code type} is the matching family.
+ * <p>{@code arrayConstraints} / {@code stringConstraints} / {@code numberConstraints} /
+ * {@code objectConstraints} default to their NONE sentinels and are only consulted
+ * by the expression builder when {@code type} is the matching family.
  */
 public record FieldDescriptor(FieldType type,
                               boolean nullable,
@@ -23,7 +23,8 @@ public record FieldDescriptor(FieldType type,
                               List<Trigger> dependsOn,
                               ArrayConstraints arrayConstraints,
                               StringConstraints stringConstraints,
-                              NumberConstraints numberConstraints) {
+                              NumberConstraints numberConstraints,
+                              ObjectConstraints objectConstraints) {
 
     public FieldDescriptor {
         Objects.requireNonNull(type, "type");
@@ -32,16 +33,17 @@ public record FieldDescriptor(FieldType type,
         arrayConstraints = arrayConstraints == null ? ArrayConstraints.NONE : arrayConstraints;
         stringConstraints = stringConstraints == null ? StringConstraints.NONE : stringConstraints;
         numberConstraints = numberConstraints == null ? NumberConstraints.NONE : numberConstraints;
+        objectConstraints = objectConstraints == null ? ObjectConstraints.NONE : objectConstraints;
     }
 
     public FieldDescriptor(FieldType type, boolean nullable, List<Object> enumValues) {
         this(type, nullable, enumValues, List.of(),
-            ArrayConstraints.NONE, StringConstraints.NONE, NumberConstraints.NONE);
+            ArrayConstraints.NONE, StringConstraints.NONE, NumberConstraints.NONE, ObjectConstraints.NONE);
     }
 
     public FieldDescriptor(FieldType type, boolean nullable, List<Object> enumValues, List<Trigger> dependsOn) {
         this(type, nullable, enumValues, dependsOn,
-            ArrayConstraints.NONE, StringConstraints.NONE, NumberConstraints.NONE);
+            ArrayConstraints.NONE, StringConstraints.NONE, NumberConstraints.NONE, ObjectConstraints.NONE);
     }
 
     public FieldDescriptor(FieldType type,
@@ -51,12 +53,23 @@ public record FieldDescriptor(FieldType type,
                            ArrayConstraints arrayConstraints,
                            StringConstraints stringConstraints) {
         this(type, nullable, enumValues, dependsOn,
-            arrayConstraints, stringConstraints, NumberConstraints.NONE);
+            arrayConstraints, stringConstraints, NumberConstraints.NONE, ObjectConstraints.NONE);
+    }
+
+    public FieldDescriptor(FieldType type,
+                           boolean nullable,
+                           List<Object> enumValues,
+                           List<Trigger> dependsOn,
+                           ArrayConstraints arrayConstraints,
+                           StringConstraints stringConstraints,
+                           NumberConstraints numberConstraints) {
+        this(type, nullable, enumValues, dependsOn,
+            arrayConstraints, stringConstraints, numberConstraints, ObjectConstraints.NONE);
     }
 
     public static FieldDescriptor of(FieldType type) {
         return new FieldDescriptor(type, false, List.of(), List.of(),
-            ArrayConstraints.NONE, StringConstraints.NONE, NumberConstraints.NONE);
+            ArrayConstraints.NONE, StringConstraints.NONE, NumberConstraints.NONE, ObjectConstraints.NONE);
     }
 
     public boolean hasEnum() {

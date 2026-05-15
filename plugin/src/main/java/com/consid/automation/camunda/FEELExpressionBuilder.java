@@ -3,6 +3,7 @@ package com.consid.automation.camunda;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -64,8 +65,26 @@ public class FEELExpressionBuilder {
             case ARRAY -> arrayViolations(fieldName, descriptor.arrayConstraints());
             case STRING, DATE, DATE_TIME, TIME -> stringViolations(fieldName, descriptor.stringConstraints());
             case NUMBER -> numberViolations(fieldName, descriptor.numberConstraints());
+            case OBJECT -> objectViolations(fieldName, descriptor.objectConstraints());
             default -> List.of();
         };
+    }
+
+    private List<String> objectViolations(String fieldName, ObjectConstraints constraints) {
+        if (!constraints.isClosed()) {
+            return List.of();
+        }
+        String list = constraints.allowedKeys().stream()
+            .sorted()
+            .map(k -> "\"" + escapeLiteral(k) + "\"")
+            .collect(Collectors.joining(", "));
+        // Outer parens (same reason as `some`): FEEL's `every ... satisfies <expr>`
+        // is greedy and would consume tokens past the intended end of the clause.
+        // `get entries(ctx).key` projects out the list of keys — Camunda FEEL has
+        // no direct `get keys(...)` function. Outer parens defend against the
+        // greedy `every ... satisfies <expr>` operator consuming surrounding tokens.
+        return List.of("(not(every k in get entries(" + fieldName
+            + ").key satisfies (k in (" + list + "))))");
     }
 
     private List<String> arrayViolations(String fieldName, ArrayConstraints constraints) {
@@ -76,7 +95,28 @@ public class FEELExpressionBuilder {
         if (constraints.hasMaxItems()) {
             parts.add("count(" + fieldName + ")>" + constraints.maxItems());
         }
+        if (constraints.hasItems()) {
+            // Outer parens around the whole `some ... satisfies ...` clause: FEEL's
+            // quantifiedOp body is greedy and would otherwise consume tokens past the
+            // intended end, breaking the surrounding OR-chain and the rules array.
+            parts.add("(some e in " + fieldName
+                + " satisfies (" + elementViolation(constraints.items(), constraints.itemRequiredFields()) + "))");
+        }
         return parts;
+    }
+
+    /**
+     * Builds the per-element violation chain used inside a {@code some e in X
+     * satisfies (...)} clause. The element binding is always {@code e}; nested
+     * arrays rely on FEEL's lexical scoping to shadow correctly.
+     */
+    private String elementViolation(FieldDescriptor items, Map<String, FieldDescriptor> itemRequiredFields) {
+        List<String> parts = new ArrayList<>();
+        parts.add(build("e", items));
+        itemRequiredFields.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .forEach(entry -> parts.add(build("e." + entry.getKey(), entry.getValue())));
+        return String.join(" or ", parts);
     }
 
     private List<String> stringViolations(String fieldName, StringConstraints constraints) {

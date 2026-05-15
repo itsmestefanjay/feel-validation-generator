@@ -1,0 +1,38 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Order Line Items API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/orders": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["lineItems"],
+                "properties": {
+                  "lineItems": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "required": ["sku", "quantity"],
+                      "properties": {
+                        "sku": { "type": "string", "pattern": "^[A-Z]{3}-[0-9]{4}$" },
+                        "quantity": { "type": "integer", "minimum": 1 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

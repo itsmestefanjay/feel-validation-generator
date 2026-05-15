@@ -75,7 +75,6 @@
                   "tags": { "type": "array", "minItems": 1, "maxItems": 4, "items": { "type": "string" } },
                   "notes": { "type": "array", "items": { "type": "string" } },
                   "profile": {
-                    "type": "object",
                     "allOf": [
                       { "$ref": "#/components/schemas/BasicInfo" },
                       { "$ref": "#/components/schemas/Contact" }
@@ -87,14 +86,12 @@
                   "paymentMethod": { "type": "string", "enum": ["card", "invoice"] },
                   "cardNumber": { "type": "string", "pattern": "^[0-9]{16}$" },
                   "identification": {
-                    "type": "object",
                     "oneOf": [
                       { "type": "object", "required": ["passportNumber"], "properties": { "passportNumber": { "type": "string" } } },
                       { "type": "object", "required": ["driversLicense"], "properties": { "driversLicense": { "type": "string" } } }
                     ]
                   },
                   "loyaltyOrPromo": {
-                    "type": "object",
                     "anyOf": [
                       { "type": "object", "required": ["loyaltyId"], "properties": { "loyaltyId": { "type": "string" } } },
                       { "type": "object", "required": ["promoCode"], "properties": { "promoCode": { "type": "string" } } }

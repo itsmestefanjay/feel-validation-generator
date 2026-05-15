@@ -1,0 +1,36 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Strict Payload API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/customers/strict": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["customerId", "profile"],
+                "properties": {
+                  "customerId": { "type": "string" },
+                  "profile": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["name"],
+                    "properties": {
+                      "name": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

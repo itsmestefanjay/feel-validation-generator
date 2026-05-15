@@ -1,0 +1,53 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Webhook Event with Discriminator API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/events/webhook": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  { "$ref": "#/components/schemas/InvoicePaid" },
+                  { "$ref": "#/components/schemas/InvoiceFailed" }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "invoice.paid": "#/components/schemas/InvoicePaid",
+                    "invoice.failed": "#/components/schemas/InvoiceFailed"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "InvoicePaid": {
+        "type": "object",
+        "required": ["type", "paidAt"],
+        "properties": {
+          "type": { "type": "string" },
+          "paidAt": { "type": "string" }
+        }
+      },
+      "InvoiceFailed": {
+        "type": "object",
+        "required": ["type", "failureReason"],
+        "properties": {
+          "type": { "type": "string" },
+          "failureReason": { "type": "string" }
+        }
+      }
+    }
+  }
+}

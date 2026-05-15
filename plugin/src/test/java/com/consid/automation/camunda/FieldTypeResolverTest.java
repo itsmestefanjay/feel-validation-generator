@@ -91,6 +91,51 @@ class FieldTypeResolverTest {
     }
 
     @Test
+    void test_resolve_schema_without_type_but_with_allOf_does_imply_object_as_expected() {
+        // given — composition keywords on a property schema (no explicit type) describe an object
+        Schema<?> schema = new Schema<>();
+        schema.setAllOf(java.util.List.of(new Schema<>().type("object")));
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.type())
+            .as("A schema using allOf is implicitly an object — the workaround `type: object` next to allOf should not be needed")
+            .isEqualTo(FieldType.OBJECT);
+    }
+
+    @Test
+    void test_resolve_schema_without_type_but_with_oneOf_does_imply_object_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>();
+        schema.setOneOf(java.util.List.of(new Schema<>().type("object")));
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.type())
+            .as("A schema using oneOf is implicitly an object")
+            .isEqualTo(FieldType.OBJECT);
+    }
+
+    @Test
+    void test_resolve_schema_without_type_but_with_anyOf_does_imply_object_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>();
+        schema.setAnyOf(java.util.List.of(new Schema<>().type("object")));
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.type())
+            .as("A schema using anyOf is implicitly an object")
+            .isEqualTo(FieldType.OBJECT);
+    }
+
+    @Test
     void test_resolve_schema_without_type_but_with_required_does_imply_object_as_expected() {
         // given
         Schema<?> schema = new Schema<>();
@@ -153,6 +198,37 @@ class FieldTypeResolverTest {
 
         // then
         assertThat(result.enumValues()).containsExactly("red", "green", "blue");
+    }
+
+    @Test
+    void test_resolve_const_does_capture_as_single_value_enum_as_expected() {
+        // given — `const: "v1"` is the single-value pinning equivalent of `enum: ["v1"]`
+        Schema<String> schema = new Schema<>();
+        schema.type("string");
+        schema._const("v1");
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.enumValues())
+            .as("const should surface in the same channel as enum so the existing in-check renders it")
+            .containsExactly("v1");
+    }
+
+    @Test
+    void test_resolve_enum_overrides_const_when_both_present_as_expected() {
+        // given — author wrote both; enum is the more general form so it wins
+        Schema<String> schema = new Schema<>();
+        schema.type("string");
+        schema.setEnum(Arrays.asList("a", "b"));
+        schema._const("ignored");
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.enumValues()).containsExactly("a", "b");
     }
 
     @Test
@@ -382,6 +458,82 @@ class FieldTypeResolverTest {
     }
 
     @Test
+    void test_resolve_string_format_email_does_inject_canonical_pattern_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("string").format("email");
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.type()).isEqualTo(FieldType.STRING);
+        assertThat(result.stringConstraints().pattern())
+            .as("format: email should inject a default regex so the existing pattern path validates the value")
+            .isNotNull()
+            .contains("@");
+    }
+
+    @Test
+    void test_resolve_string_format_uuid_does_inject_canonical_pattern_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("string").format("uuid");
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.type()).isEqualTo(FieldType.STRING);
+        assertThat(result.stringConstraints().pattern())
+            .as("format: uuid should inject a default regex matching the canonical 8-4-4-4-12 hex form")
+            .isNotNull()
+            .startsWith("^[0-9a-fA-F]{8}");
+    }
+
+    @Test
+    void test_resolve_string_format_uri_does_inject_canonical_pattern_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("string").format("uri");
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.type()).isEqualTo(FieldType.STRING);
+        assertThat(result.stringConstraints().pattern())
+            .as("format: uri should inject a default scheme:something regex")
+            .isNotNull();
+    }
+
+    @Test
+    void test_resolve_string_format_url_alias_does_inject_uri_pattern_as_expected() {
+        // given — `format: url` is a common spelling; treat it like `uri`
+        Schema<?> schema = new Schema<>().type("string").format("url");
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.stringConstraints().pattern())
+            .as("format: url should be aliased to the uri pattern so authors who write either get the same check")
+            .isNotNull();
+    }
+
+    @Test
+    void test_resolve_author_pattern_overrides_format_default_as_expected() {
+        // given — author wrote both format:email AND a custom pattern. Author wins.
+        Schema<?> schema = new Schema<>().type("string").format("email");
+        schema.setPattern("^custom$");
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.stringConstraints().pattern())
+            .as("Author-supplied pattern should beat the format default — most specific intent wins")
+            .isEqualTo("^custom$");
+    }
+
+    @Test
     void test_resolve_non_string_with_pattern_does_ignore_constraint_as_expected() {
         // given — pattern is string-only; on a number it has no meaning
         Schema<?> schema = new Schema<>().type("number");
@@ -545,6 +697,67 @@ class FieldTypeResolverTest {
         assertThat(result.type()).isEqualTo(FieldType.NUMBER);
         assertThat(result.numberConstraints().minimum()).isEqualByComparingTo("18");
         assertThat(result.numberConstraints().maximum()).isEqualByComparingTo("120");
+    }
+
+    @Test
+    void test_resolve_object_without_additional_properties_does_default_to_open_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("object");
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.objectConstraints().isClosed())
+            .as("Default OpenAPI semantics: additionalProperties is open unless declared false")
+            .isFalse();
+    }
+
+    @Test
+    void test_resolve_object_with_additional_properties_false_does_capture_allowed_keys_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("object");
+        schema.addProperty("id", new Schema<>().type("string"));
+        schema.addProperty("name", new Schema<>().type("string"));
+        schema.setAdditionalProperties(Boolean.FALSE);
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.objectConstraints().isClosed()).isTrue();
+        assertThat(result.objectConstraints().allowedKeys()).containsExactlyInAnyOrder("id", "name");
+    }
+
+    @Test
+    void test_resolve_object_with_additional_properties_true_does_stay_open_as_expected() {
+        // given — explicit `true` is the same as the default
+        Schema<?> schema = new Schema<>().type("object");
+        schema.addProperty("id", new Schema<>().type("string"));
+        schema.setAdditionalProperties(Boolean.TRUE);
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.objectConstraints().isClosed())
+            .as("additionalProperties: true is the open default — no key check should be emitted")
+            .isFalse();
+    }
+
+    @Test
+    void test_resolve_non_object_with_additional_properties_does_ignore_as_expected() {
+        // given — additionalProperties is object-only; on a string it's meaningless
+        Schema<?> schema = new Schema<>().type("string");
+        schema.setAdditionalProperties(Boolean.FALSE);
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.objectConstraints())
+            .as("Object constraints should only attach to object-typed schemas")
+            .isEqualTo(ObjectConstraints.NONE);
     }
 
     @Test

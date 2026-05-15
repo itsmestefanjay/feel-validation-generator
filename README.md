@@ -98,9 +98,10 @@ The type clause fires on the value's runtime kind only. Required arrays may be e
 | `type: object` | `not(X instance of context)` |
 | unrecognised / missing | `X=null` only (no type clause) |
 
-Two modifiers layer on top of the type clause:
+Three modifiers layer on top of the type clause:
 
 - **`enum`** — adds `or not(X in (…))` to the violation chain, so the field is also invalid when its value isn't in the allowed set. Strings are quoted, numbers and booleans emitted bare, `null` is `null`.
+- **`const`** — treated as a single-value enum: `const: "v1"` is equivalent to `enum: ["v1"]`. Useful for pinning a schema version or discriminator value without writing a one-element enum.
 - **`nullable: true`** (OpenAPI 3.0) / **`type: [<t>, "null"]`** (OpenAPI 3.1) — flips the rule from `field=null or (…)` to `field!=null and (…)`, so a missing value is no longer treated as invalid; only a present-but-malformed one is.
 
 ### Value constraints
@@ -114,8 +115,11 @@ Schema keywords that bound the value's contents add OR-clauses to the violation 
 | `minLength: N` | `string length(X)<N` |
 | `maxLength: N` | `string length(X)>N` |
 | `pattern: <regex>` | `not(matches(X, "<regex>"))` |
+| `format: email` | `not(matches(X, "^[^@\s]+@[^@\s]+\.[^@\s]+$"))` |
+| `format: uuid` | `not(matches(X, "^[0-9a-fA-F]{8}-…-[0-9a-fA-F]{12}$"))` |
+| `format: uri` / `format: url` | `not(matches(X, "^[a-zA-Z][a-zA-Z0-9+.-]*:.+$"))` |
 
-`minLength: 0` is preserved as the explicit "may be empty" signal and emits no clause. Pattern strings are FEEL-escaped (backslashes and quotes).
+`minLength: 0` is preserved as the explicit "may be empty" signal and emits no clause. Pattern strings are FEEL-escaped (backslashes and quotes). `format` only kicks in when no explicit `pattern` is set — author-supplied patterns always win. Format regexes are intentionally permissive — they match author intent ("looks like a UUID"), not RFC-perfect validation.
 
 **Arrays:**
 
@@ -123,8 +127,28 @@ Schema keywords that bound the value's contents add OR-clauses to the violation 
 |---|---|
 | `minItems: N` | `count(X)<N` |
 | `maxItems: N` | `count(X)>N` |
+| `items: <schema>` | `(some e in X satisfies (<element-violation>))` |
 
 `minItems: 0` (or absence) means a required key may carry an empty list. To require non-empty, set `minItems: 1`.
+
+The `items` clause recurses: each element is validated against its full schema, including its own required fields when the element is an object. For an array of objects `{sku, quantity}` both required, the emitted clause is:
+
+```
+(some e in X satisfies (
+  e=null or not(e instance of context)
+  or e.sku=null or not(e.sku instance of string)
+  or e.quantity=null or not(e.quantity instance of number)))
+```
+
+Read as "X is invalid if some element `e` is missing, of the wrong shape, or has any required child missing/wrong".
+
+**Objects:**
+
+| Keyword | Violation clause (true ⇒ invalid) |
+|---|---|
+| `additionalProperties: false` | `(not(every k in get entries(X).key satisfies (k in (<declared keys>))))` |
+
+When set on the root request schema, the generator emits an extra rule with id `rootObject-invalid` that pins the top-level payload to its declared keys. On nested objects, the clause is folded into the existing rule for that field. The schema form of `additionalProperties` (a sub-schema specifying allowed value types) is not honored — only the strict boolean-false case.
 
 **Numbers** (both `number` and `integer`):
 
@@ -144,7 +168,21 @@ Both OpenAPI 3.0 (boolean) and OpenAPI 3.1 (numeric) forms of `exclusiveMinimum`
 
 - **`$ref`** — resolved transparently against `#/components/schemas/*`. A component referenced from multiple paths is expanded at every reference. A `$ref` that can't be resolved fails the build (no `UNKNOWN` rule fallback).
 - **`allOf`** — every branch's `required` list is merged into the parent. Use for "this schema is everything in A plus everything in B".
-- **`oneOf` / `anyOf`** — currently union-merged: required fields from every branch are accumulated. See *Restrictions* below.
+- **`oneOf` with a `discriminator`** — each branch's required fields become conditional on the discriminator value. The discriminator property itself is pinned to the enum of mapping keys as an unconditional required field:
+  ```yaml
+  schema:
+    oneOf:
+      - $ref: "#/components/schemas/InvoicePaid"
+      - $ref: "#/components/schemas/InvoiceFailed"
+    discriminator:
+      propertyName: type
+      mapping:
+        invoice.paid: "#/components/schemas/InvoicePaid"
+        invoice.failed: "#/components/schemas/InvoiceFailed"
+  ```
+  Emits one rule per branch's required fields with a `type="invoice.paid" and (…)` / `type="invoice.failed" and (…)` guard.
+- **`oneOf` / `anyOf` without a discriminator** — union-merged: required fields from every branch are accumulated. The generated FEEL is then stricter than the spec implies. Use `discriminator` (above) or `if`/`then` if you need exclusive branches.
+- **Composition implies object** — when a property uses `allOf` / `oneOf` / `anyOf` without an explicit `type: object`, the generator still treats it as an object so the inner required fields are honored. No workaround needed.
 
 ### Conditional requirements
 
@@ -198,10 +236,10 @@ Known limitations of the generator. Specs may use these constructs, but they won
 
 - **`if`/`then` predicates** beyond a single-property `const` or `enum` are skipped. No multi-property `if`, no nested logic, no `pattern` / range / length predicates, no `else` branch.
 - **`if`/`then` dependents must be sibling property names.** Dot-paths like `card.number` in `then.required` are not honored. Place the `if`/`then` inside the nested object's schema instead — the extractor recurses, so a nested-level `if`/`then` works correctly for its own properties.
-- **`oneOf` / `anyOf` are union-merged** rather than exclusive. Every branch's required fields are added, so the generated FEEL is stricter than the spec implies. Use `if`/`then` if you need exclusive alternatives.
-- **`allOf` / `oneOf` / `anyOf` inside a property** need an explicit `"type": "object"` on the property for the extractor to recurse. Composition keywords alone are not currently treated as object-indicating.
-- **Array element schemas (`items`) are not validated.** A required typed array passes the type and bounds checks but its elements aren't inspected.
-- **Not yet supported:** `uniqueItems`, `additionalProperties: false`, `minProperties` / `maxProperties`, `const` outside `if`, `readOnly` / `writeOnly`, format-driven validations beyond date/date-time/time (e.g. `email`, `uuid`), and discriminator-aware `oneOf` selection.
+- **`anyOf` and `oneOf` without a discriminator** are union-merged: every branch's required fields are accumulated, so the generated FEEL is stricter than the spec implies. Provide a `discriminator` with explicit `mapping` to get per-branch conditional rules, or use `if`/`then`.
+- **`additionalProperties` as a schema** (a sub-schema describing allowed value types) is not honored — only the strict boolean `false` case is.
+- **Nested triggers AND-vs-OR**: when a conditionally-required parent contains a conditionally-required child, the child's effective guard is the OR of the parent's and child's triggers, not the AND. Edge case; rare in practice.
+- **Not yet supported:** `uniqueItems`, `minProperties` / `maxProperties`, `readOnly` / `writeOnly`, format-driven validations beyond `date` / `date-time` / `time` / `email` / `uuid` / `uri`, schema-form `additionalProperties`, and input sources beyond `request.body` (headers, query parameters).
 
 ## Output modes
 

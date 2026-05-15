@@ -58,6 +58,12 @@ class FEELRuleGenerator implements ValidationRuleBuilder {
 
     @Override
     public ValidationRule createRule(String fieldPath, FieldDescriptor descriptor) {
+        if (fieldPath.isEmpty()) {
+            // Synthetic root entry from RequiredFieldsExtractor — emit against `req`
+            // directly with a descriptive id/field, no dotted prefix.
+            String rootCondition = expressionBuilder.build("req", qualifyDependsOn(descriptor));
+            return ValidationRule.create("rootObject-invalid", rootCondition, "(root)");
+        }
         String ruleId = fieldPath + "-invalid";
         String condition = expressionBuilder.build("req." + fieldPath, qualifyDependsOn(descriptor));
         return ValidationRule.create(ruleId, condition, fieldPath);

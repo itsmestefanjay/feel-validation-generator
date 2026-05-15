@@ -358,6 +358,116 @@ class RequiredFieldsExtractorTest {
     }
 
     @Test
+    void test_extract_oneof_with_discriminator_does_make_branch_fields_conditional_on_value_as_expected() {
+        // given — typical webhook event shape: a `type` discriminator selects one of two payload schemas
+        io.swagger.v3.oas.models.OpenAPI openAPI = new io.swagger.v3.oas.models.OpenAPI();
+        io.swagger.v3.oas.models.Components components = new io.swagger.v3.oas.models.Components();
+
+        Schema<?> invoicePaid = new Schema<>().type("object");
+        invoicePaid.setRequired(List.of("type", "paidAt"));
+        invoicePaid.addProperty("type", new Schema<>().type("string"));
+        invoicePaid.addProperty("paidAt", new Schema<>().type("string"));
+        components.addSchemas("InvoicePaid", invoicePaid);
+
+        Schema<?> invoiceFailed = new Schema<>().type("object");
+        invoiceFailed.setRequired(List.of("type", "failureReason"));
+        invoiceFailed.addProperty("type", new Schema<>().type("string"));
+        invoiceFailed.addProperty("failureReason", new Schema<>().type("string"));
+        components.addSchemas("InvoiceFailed", invoiceFailed);
+        openAPI.setComponents(components);
+
+        Schema<?> paidRef = new Schema<>(); paidRef.set$ref("#/components/schemas/InvoicePaid");
+        Schema<?> failedRef = new Schema<>(); failedRef.set$ref("#/components/schemas/InvoiceFailed");
+        Schema<?> root = new Schema<>().type("object");
+        root.setOneOf(Arrays.asList(paidRef, failedRef));
+        io.swagger.v3.oas.models.media.Discriminator d = new io.swagger.v3.oas.models.media.Discriminator();
+        d.setPropertyName("type");
+        d.setMapping(Map.of(
+            "invoice.paid", "#/components/schemas/InvoicePaid",
+            "invoice.failed", "#/components/schemas/InvoiceFailed"));
+        root.setDiscriminator(d);
+
+        RequiredFieldsExtractor disc = new RequiredFieldsExtractor(new FieldTypeResolver(openAPI));
+
+        // when
+        Map<String, FieldDescriptor> result = disc.extract(root);
+
+        // then — paidAt only required when type="invoice.paid"; failureReason only when type="invoice.failed"
+        assertThat(result).containsKeys("type", "paidAt", "failureReason");
+
+        FieldDescriptor paidAt = result.get("paidAt");
+        assertThat(paidAt.isConditional()).isTrue();
+        assertThat(paidAt.dependsOn())
+            .containsExactly(Trigger.value("type", List.of("invoice.paid")));
+
+        FieldDescriptor failureReason = result.get("failureReason");
+        assertThat(failureReason.isConditional()).isTrue();
+        assertThat(failureReason.dependsOn())
+            .containsExactly(Trigger.value("type", List.of("invoice.failed")));
+    }
+
+    @Test
+    void test_extract_oneof_with_discriminator_does_make_discriminator_field_unconditionally_required_as_expected() {
+        // given — the discriminator property itself must always be present so we know which branch applies
+        io.swagger.v3.oas.models.OpenAPI openAPI = new io.swagger.v3.oas.models.OpenAPI();
+        io.swagger.v3.oas.models.Components components = new io.swagger.v3.oas.models.Components();
+
+        Schema<?> a = new Schema<>().type("object");
+        a.setRequired(List.of("type"));
+        a.addProperty("type", new Schema<>().type("string"));
+        components.addSchemas("A", a);
+        Schema<?> b = new Schema<>().type("object");
+        b.setRequired(List.of("type"));
+        b.addProperty("type", new Schema<>().type("string"));
+        components.addSchemas("B", b);
+        openAPI.setComponents(components);
+
+        Schema<?> aRef = new Schema<>(); aRef.set$ref("#/components/schemas/A");
+        Schema<?> bRef = new Schema<>(); bRef.set$ref("#/components/schemas/B");
+        Schema<?> root = new Schema<>().type("object");
+        root.setOneOf(Arrays.asList(aRef, bRef));
+        io.swagger.v3.oas.models.media.Discriminator d = new io.swagger.v3.oas.models.media.Discriminator();
+        d.setPropertyName("type");
+        d.setMapping(Map.of("a-event", "#/components/schemas/A", "b-event", "#/components/schemas/B"));
+        root.setDiscriminator(d);
+
+        RequiredFieldsExtractor disc = new RequiredFieldsExtractor(new FieldTypeResolver(openAPI));
+
+        // when
+        Map<String, FieldDescriptor> result = disc.extract(root);
+
+        // then
+        FieldDescriptor type = result.get("type");
+        assertThat(type).isNotNull();
+        assertThat(type.isConditional())
+            .as("Discriminator field must always be required — otherwise a missing `type` silently disables all branch checks")
+            .isFalse();
+        assertThat(type.enumValues())
+            .as("Discriminator enum should pin the allowed branch values for the type field")
+            .containsExactlyInAnyOrder("a-event", "b-event");
+    }
+
+    @Test
+    void test_extract_oneof_without_discriminator_does_still_union_merge_as_expected() {
+        // given — backward compatibility: without discriminator, fall back to today's union-merge
+        Schema<?> first = new Schema<>().type("object");
+        first.setRequired(List.of("a"));
+        first.addProperty("a", new Schema<>().type("string"));
+        Schema<?> second = new Schema<>().type("object");
+        second.setRequired(List.of("b"));
+        second.addProperty("b", new Schema<>().type("string"));
+        Schema<?> root = new Schema<>();
+        root.setOneOf(Arrays.asList(first, second));
+
+        // when
+        Map<String, FieldDescriptor> result = extractor.extract(root);
+
+        // then
+        assertThat(result.get("a").isConditional()).isFalse();
+        assertThat(result.get("b").isConditional()).isFalse();
+    }
+
+    @Test
     void test_extract_shared_component_does_expand_at_every_reference_as_expected() {
         // given
         Schema<?> sharedAddress = new Schema<>();

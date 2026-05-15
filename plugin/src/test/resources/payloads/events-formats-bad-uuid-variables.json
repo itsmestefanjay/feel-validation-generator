@@ -1,0 +1,6 @@
+{
+  "eventId": "not-a-uuid",
+  "email": "alice@example.com",
+  "callbackUrl": "https://example.com/webhook",
+  "schemaVersion": "v1"
+}

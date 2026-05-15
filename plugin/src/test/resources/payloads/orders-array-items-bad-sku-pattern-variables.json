@@ -1,0 +1,5 @@
+{
+  "lineItems": [
+    { "sku": "abc-1234", "quantity": 2 }
+  ]
+}

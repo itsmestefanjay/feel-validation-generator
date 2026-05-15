@@ -16,6 +16,17 @@ import java.util.Set;
 public class FieldTypeResolver {
 
     private static final String SCHEMA_PATH_PREFIX = "#/components/schemas/";
+
+    /**
+     * Canonical regexes injected when the schema declares {@code format: <name>}
+     * but no explicit {@code pattern}. Deliberately permissive — author intent is
+     * "looks like a UUID / email / URI", not RFC-perfect validation.
+     */
+    private static final String EMAIL_PATTERN = "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$";
+    private static final String UUID_PATTERN =
+        "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";
+    private static final String URI_PATTERN = "^[a-zA-Z][a-zA-Z0-9+.-]*:.+$";
+
     private final OpenAPI openAPI;
 
     public FieldTypeResolver(OpenAPI openAPI) {
@@ -33,14 +44,34 @@ public class FieldTypeResolver {
         Schema<?> resolved = resolveSchemaReference(schema);
         FieldType type = mapTypeToFieldType(primaryType(resolved), resolved);
         boolean nullable = isNullable(resolved);
-        List<Object> enumValues = resolved.getEnum() == null
-            ? List.of()
-            : List.copyOf(resolved.getEnum());
+        List<Object> enumValues = enumValuesFrom(resolved);
         return new FieldDescriptor(
             type, nullable, enumValues, List.of(),
             arrayConstraints(type, resolved),
             stringConstraints(type, resolved),
-            numberConstraints(type, resolved));
+            numberConstraints(type, resolved),
+            objectConstraints(type, resolved));
+    }
+
+    /**
+     * Captures {@code additionalProperties: false} as a closed allowed-key set.
+     * The boolean {@code true} (or absence) leaves the object open. Schema-form
+     * {@code additionalProperties} (a sub-schema specifying value types) is not
+     * supported here — only the strict boolean-false case is currently honored.
+     */
+    private ObjectConstraints objectConstraints(FieldType type, Schema<?> schema) {
+        if (type != FieldType.OBJECT) {
+            return ObjectConstraints.NONE;
+        }
+        Object additionalProperties = schema.getAdditionalProperties();
+        if (!Boolean.FALSE.equals(additionalProperties)) {
+            return ObjectConstraints.NONE;
+        }
+        var properties = schema.getProperties();
+        Set<String> allowed = properties == null
+            ? Set.of()
+            : new java.util.LinkedHashSet<>(properties.keySet());
+        return new ObjectConstraints(allowed);
     }
 
     private ArrayConstraints arrayConstraints(FieldType type, Schema<?> schema) {
@@ -49,10 +80,13 @@ public class FieldTypeResolver {
         }
         Integer minItems = schema.getMinItems();
         Integer maxItems = schema.getMaxItems();
-        if (minItems == null && maxItems == null) {
+        // `items` may itself be a $ref or use composition. resolve() handles both;
+        // an unresolved items schema leaves the descriptor null (no element check).
+        FieldDescriptor items = schema.getItems() == null ? null : resolve(schema.getItems());
+        if (minItems == null && maxItems == null && items == null) {
             return ArrayConstraints.NONE;
         }
-        return new ArrayConstraints(minItems, maxItems);
+        return new ArrayConstraints(minItems, maxItems, items, Map.of());
     }
 
     private StringConstraints stringConstraints(FieldType type, Schema<?> schema) {
@@ -63,10 +97,30 @@ public class FieldTypeResolver {
         Integer minLength = schema.getMinLength();
         Integer maxLength = schema.getMaxLength();
         String pattern = schema.getPattern();
+        if (pattern == null || pattern.isEmpty()) {
+            pattern = formatPattern(schema.getFormat());
+        }
         if (minLength == null && maxLength == null && (pattern == null || pattern.isEmpty())) {
             return StringConstraints.NONE;
         }
         return new StringConstraints(minLength, maxLength, pattern);
+    }
+
+    /**
+     * Returns the canonical regex for known string formats, or {@code null} if
+     * the format isn't recognized. Authors who write an explicit {@code pattern}
+     * always win over the format default.
+     */
+    private String formatPattern(String format) {
+        if (format == null) {
+            return null;
+        }
+        return switch (format.toLowerCase(Locale.ROOT)) {
+            case "email" -> EMAIL_PATTERN;
+            case "uuid" -> UUID_PATTERN;
+            case "uri", "url" -> URI_PATTERN;
+            default -> null;
+        };
     }
 
     private boolean isStringFamily(FieldType type) {
@@ -129,6 +183,21 @@ public class FieldTypeResolver {
         return null;
     }
 
+    /**
+     * Reads the field's allowed-value set. {@code enum} takes precedence; if absent,
+     * {@code const} is promoted to a single-element enum so the existing in-check
+     * renders the pinning constraint without any builder-side change.
+     */
+    private List<Object> enumValuesFrom(Schema<?> schema) {
+        if (schema.getEnum() != null && !schema.getEnum().isEmpty()) {
+            return List.copyOf(schema.getEnum());
+        }
+        if (schema.getConst() != null) {
+            return List.of(schema.getConst());
+        }
+        return List.of();
+    }
+
     private boolean isNullable(Schema<?> schema) {
         if (Boolean.TRUE.equals(schema.getNullable())) {
             return true;
@@ -171,7 +240,11 @@ public class FieldTypeResolver {
     }
 
     private boolean schemaIndicatesObject(Schema<?> schema) {
-        return schema.getProperties() != null || schema.getRequired() != null;
+        return schema.getProperties() != null
+            || schema.getRequired() != null
+            || schema.getAllOf() != null
+            || schema.getOneOf() != null
+            || schema.getAnyOf() != null;
     }
 
     /**
