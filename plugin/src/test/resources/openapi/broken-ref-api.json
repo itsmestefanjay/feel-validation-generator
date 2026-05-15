@@ -1,0 +1,27 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Broken Ref Spec",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/customers/broken": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["data"],
+                "properties": {
+                  "data": { "$ref": "#/components/schemas/DoesNotExist" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

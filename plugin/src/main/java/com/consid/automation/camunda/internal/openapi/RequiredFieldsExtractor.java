@@ -1,5 +1,6 @@
 package com.consid.automation.camunda.internal.openapi;
 
+import com.consid.automation.camunda.internal.Diagnostics;
 import com.consid.automation.camunda.internal.model.*;
 
 import io.swagger.v3.oas.models.media.Discriminator;
@@ -23,9 +24,15 @@ import java.util.Set;
 public class RequiredFieldsExtractor {
 
     private final FieldTypeResolver typeResolver;
+    private final Diagnostics diagnostics;
 
     public RequiredFieldsExtractor(FieldTypeResolver typeResolver) {
+        this(typeResolver, Diagnostics.NOOP);
+    }
+
+    public RequiredFieldsExtractor(FieldTypeResolver typeResolver, Diagnostics diagnostics) {
         this.typeResolver = typeResolver;
+        this.diagnostics = diagnostics;
     }
 
     public ExtractionResult extract(Schema<?> schema) {
@@ -177,6 +184,10 @@ public class RequiredFieldsExtractor {
         }
         Trigger trigger = extractValueTrigger(ifSchema, pathPrefix);
         if (trigger == null) {
+            diagnostics.warn(locationLabel(pathPrefix),
+                "if/then predicate shape not supported and the conditional was skipped; "
+                    + "only a single-property predicate using `const` or `enum` "
+                    + "(plus `required: [<that property>]`) is honored");
             return;
         }
         List<String> thenRequired = thenSchema.getRequired();
@@ -276,6 +287,10 @@ public class RequiredFieldsExtractor {
         Map<String, String> mapping = discriminator == null ? null : discriminator.getMapping();
         String propertyName = discriminator == null ? null : discriminator.getPropertyName();
         if (propertyName == null || mapping == null || mapping.isEmpty()) {
+            diagnostics.warn(locationLabel(pathPrefix),
+                "oneOf without `discriminator.mapping` falls back to union-merge "
+                    + "(all branches' required fields are accumulated, which is stricter than the spec implies); "
+                    + "add a `discriminator` with explicit `mapping` to scope branch fields to their type value");
             processComposition(oneOf, requiredFields, pathPrefix, activeStack, inheritedTriggers);
             return;
         }
@@ -374,5 +389,9 @@ public class RequiredFieldsExtractor {
 
     private String buildFieldPath(String pathPrefix, String fieldName) {
         return pathPrefix.isEmpty() ? fieldName : pathPrefix + "." + fieldName;
+    }
+
+    private String locationLabel(String pathPrefix) {
+        return pathPrefix.isEmpty() ? "(root)" : pathPrefix;
     }
 }

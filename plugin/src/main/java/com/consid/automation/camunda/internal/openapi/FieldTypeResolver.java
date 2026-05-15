@@ -1,5 +1,6 @@
 package com.consid.automation.camunda.internal.openapi;
 
+import com.consid.automation.camunda.internal.Diagnostics;
 import com.consid.automation.camunda.internal.model.*;
 
 import io.swagger.v3.oas.models.Components;
@@ -34,9 +35,15 @@ public class FieldTypeResolver {
     private static final String URI_PATTERN = "^[a-zA-Z][a-zA-Z0-9+.-]*:.+$";
 
     private final OpenAPI openAPI;
+    private final Diagnostics diagnostics;
 
     public FieldTypeResolver(OpenAPI openAPI) {
+        this(openAPI, Diagnostics.NOOP);
+    }
+
+    public FieldTypeResolver(OpenAPI openAPI, Diagnostics diagnostics) {
         this.openAPI = openAPI;
+        this.diagnostics = diagnostics;
     }
 
     /**
@@ -163,15 +170,38 @@ public class FieldTypeResolver {
      * Captures {@code additionalProperties: false} as a closed allowed-key set.
      * The boolean {@code true} (or absence) leaves the object open. Schema-form
      * {@code additionalProperties} (a sub-schema specifying value types) is not
-     * supported here — only the strict boolean-false case.
+     * supported and is reported as a warning so the author doesn't silently get
+     * an open object when they expected a typed-additional-properties constraint.
      */
     private ObjectTypeInfo objectTypeInfo(Schema<?> schema) {
-        if (!Boolean.FALSE.equals(schema.getAdditionalProperties())) {
+        Object additionalProperties = schema.getAdditionalProperties();
+        if (additionalProperties == null || Boolean.TRUE.equals(additionalProperties)) {
             return ObjectTypeInfo.OPEN;
         }
-        var properties = schema.getProperties();
-        Set<String> allowed = properties == null ? Set.of() : new LinkedHashSet<>(properties.keySet());
-        return new ObjectTypeInfo(allowed);
+        if (Boolean.FALSE.equals(additionalProperties)) {
+            var properties = schema.getProperties();
+            Set<String> allowed = properties == null ? Set.of() : new LinkedHashSet<>(properties.keySet());
+            return new ObjectTypeInfo(allowed);
+        }
+        diagnostics.warn(schemaLocation(schema),
+            "schema-form `additionalProperties` is not supported; "
+                + "only `additionalProperties: false` is honored");
+        return ObjectTypeInfo.OPEN;
+    }
+
+    /**
+     * Best-effort label for warnings: prefers the schema's $ref or declared name,
+     * falls back to {@code (unnamed)}. Not a full JSON Pointer — swagger-parser
+     * doesn't surface one — but enough to help the author locate the offending schema.
+     */
+    private String schemaLocation(Schema<?> schema) {
+        if (schema.get$ref() != null) {
+            return schema.get$ref();
+        }
+        if (schema.getName() != null) {
+            return schema.getName();
+        }
+        return "(unnamed)";
     }
 
     /**
