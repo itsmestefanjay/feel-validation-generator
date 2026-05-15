@@ -17,6 +17,13 @@ public interface ValidationRuleBuilder {
     ValidationRule createRule(String fieldPath, FieldDescriptor descriptor);
 
     /**
+     * Create a rule that enforces the root payload's
+     * {@code additionalProperties: false} closure. Emits a separate rule
+     * (not a per-field one) because the root has no parent property to attach to.
+     */
+    ValidationRule createRootObjectRule(ObjectTypeInfo rootClosure);
+
+    /**
      * Render the grouped validation rules into the final FEEL output.
      */
     String render(Map<String, List<ValidationRule>> rulesByEndpoint);

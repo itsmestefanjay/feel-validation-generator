@@ -22,45 +22,34 @@ import java.util.Set;
  */
 public class RequiredFieldsExtractor {
 
-    /**
-     * Reserved field-path key for a synthetic root-object descriptor — empty
-     * string can never collide with a real property name. The rule generator
-     * detects this key and emits a rule against {@code req} directly (no
-     * dotted path prefix).
-     */
-    public static final String ROOT_OBJECT_KEY = "";
-
     private final FieldTypeResolver typeResolver;
 
     public RequiredFieldsExtractor(FieldTypeResolver typeResolver) {
         this.typeResolver = typeResolver;
     }
 
-    public Map<String, FieldDescriptor> extract(Schema<?> schema) {
+    public ExtractionResult extract(Schema<?> schema) {
         Map<String, FieldDescriptor> requiredFields = new LinkedHashMap<>();
         Set<Schema<?>> activeStack = Collections.newSetFromMap(new IdentityHashMap<>());
         collectRequiredFields(schema, requiredFields, "", activeStack, List.of());
-        addRootObjectConstraintsIfClosed(schema, requiredFields);
-        return requiredFields;
+        return new ExtractionResult(requiredFields, rootClosureFor(schema));
     }
 
     /**
-     * When the root schema declares {@code additionalProperties: false}, emit a
-     * synthetic OBJECT descriptor under {@link #ROOT_OBJECT_KEY} so the rule
-     * generator can produce a "no unexpected top-level keys" rule. Nested
-     * objects with the same keyword are handled by the regular descriptor-driven
-     * flow.
+     * Reads the root schema's {@code additionalProperties: false} as an
+     * {@link ObjectTypeInfo} closure, surfaced separately so the rule generator
+     * can emit one extra "no unexpected top-level keys" rule. Nested objects
+     * with the same keyword are handled by the regular descriptor-driven flow.
      */
-    private void addRootObjectConstraintsIfClosed(Schema<?> root,
-                                                  Map<String, FieldDescriptor> requiredFields) {
+    private ObjectTypeInfo rootClosureFor(Schema<?> root) {
         if (root == null) {
-            return;
+            return null;
         }
         FieldDescriptor rootDescriptor = typeResolver.resolve(root);
-        if (!(rootDescriptor.typeInfo() instanceof ObjectTypeInfo object) || !object.isClosed()) {
-            return;
+        if (rootDescriptor.typeInfo() instanceof ObjectTypeInfo object && object.isClosed()) {
+            return object;
         }
-        requiredFields.put(ROOT_OBJECT_KEY, rootDescriptor);
+        return null;
     }
 
     /**

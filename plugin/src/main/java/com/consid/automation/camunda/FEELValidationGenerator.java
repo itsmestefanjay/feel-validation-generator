@@ -68,9 +68,13 @@ public class FEELValidationGenerator {
     }
 
     private List<ValidationRule> rulesFor(Schema<?> schema, RequiredFieldsExtractor fieldsExtractor) {
+        ExtractionResult extracted = fieldsExtractor.extract(schema);
         List<ValidationRule> rules = new ArrayList<>();
-        fieldsExtractor.extract(schema).forEach((fieldPath, descriptor) ->
+        extracted.requiredFields().forEach((fieldPath, descriptor) ->
             rules.add(ruleBuilder.createRule(fieldPath, descriptor)));
+        if (extracted.hasRootClosure()) {
+            rules.add(ruleBuilder.createRootObjectRule(extracted.rootClosure()));
+        }
         return rules;
     }
 

@@ -35,7 +35,7 @@ class RequiredFieldsExtractorTest {
         schema.addProperty("username", new Schema<>().type("string"));
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema).requiredFields();
 
         // then
         assertThat(result).containsEntry("username", FieldDescriptor.of(StringTypeInfo.PLAIN));
@@ -50,7 +50,7 @@ class RequiredFieldsExtractorTest {
         schema.addProperty("optional", new Schema<>().type("string"));
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema).requiredFields();
 
         // then
         assertThat(result)
@@ -69,7 +69,7 @@ class RequiredFieldsExtractorTest {
         schema.addProperty("data", nestedSchema);
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema).requiredFields();
 
         // then
         assertThat(result)
@@ -90,7 +90,7 @@ class RequiredFieldsExtractorTest {
         composedSchema.setAllOf(Arrays.asList(baseSchema, dataSchema));
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(composedSchema);
+        Map<String, FieldDescriptor> result = extractor.extract(composedSchema).requiredFields();
 
         // then
         assertThat(result)
@@ -111,7 +111,7 @@ class RequiredFieldsExtractorTest {
         composedSchema.setOneOf(Arrays.asList(firstOption, secondOption));
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(composedSchema);
+        Map<String, FieldDescriptor> result = extractor.extract(composedSchema).requiredFields();
 
         // then
         assertThat(result)
@@ -132,7 +132,7 @@ class RequiredFieldsExtractorTest {
         composedSchema.setAnyOf(Arrays.asList(firstOption, secondOption));
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(composedSchema);
+        Map<String, FieldDescriptor> result = extractor.extract(composedSchema).requiredFields();
 
         // then
         assertThat(result)
@@ -143,7 +143,7 @@ class RequiredFieldsExtractorTest {
     @Test
     void test_extract_empty_schema_does_return_empty_map_as_expected() {
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(new Schema<>());
+        Map<String, FieldDescriptor> result = extractor.extract(new Schema<>()).requiredFields();
 
         // then
         assertThat(result).isEmpty();
@@ -152,7 +152,7 @@ class RequiredFieldsExtractorTest {
     @Test
     void test_extract_null_schema_does_return_empty_map_as_expected() {
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(null);
+        Map<String, FieldDescriptor> result = extractor.extract(null).requiredFields();
 
         // then
         assertThat(result).isEmpty();
@@ -167,7 +167,7 @@ class RequiredFieldsExtractorTest {
         schema.setDependentRequired(Map.of("shippingAddress", List.of("shippingCarrier")));
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema).requiredFields();
 
         // then
         FieldDescriptor carrier = result.get("shippingCarrier");
@@ -187,7 +187,7 @@ class RequiredFieldsExtractorTest {
         schema.setDependentRequired(Map.of("shippingAddress", List.of("shippingCarrier")));
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema).requiredFields();
 
         // then
         assertThat(result.get("shippingCarrier").isConditional())
@@ -208,7 +208,7 @@ class RequiredFieldsExtractorTest {
         ));
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema).requiredFields();
 
         // then
         assertThat(result.get("c").dependsOn())
@@ -232,7 +232,7 @@ class RequiredFieldsExtractorTest {
         schema.setThen(thenSchema);
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema).requiredFields();
 
         // then
         FieldDescriptor cardNumber = result.get("cardNumber");
@@ -258,7 +258,7 @@ class RequiredFieldsExtractorTest {
         schema.setThen(thenSchema);
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema).requiredFields();
 
         // then
         assertThat(result.get("discountCode").dependsOn())
@@ -283,7 +283,7 @@ class RequiredFieldsExtractorTest {
         schema.setThen(thenSchema);
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema).requiredFields();
 
         // then
         assertThat(result)
@@ -311,7 +311,7 @@ class RequiredFieldsExtractorTest {
         root.setThen(thenSchema);
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(root);
+        Map<String, FieldDescriptor> result = extractor.extract(root).requiredFields();
 
         // then
         Trigger expected = Trigger.value("needsDelivery", List.of(new FeelBoolean(true)));
@@ -332,7 +332,7 @@ class RequiredFieldsExtractorTest {
         root.addProperty("profile", profile);
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(root);
+        Map<String, FieldDescriptor> result = extractor.extract(root).requiredFields();
 
         // then
         assertThat(result)
@@ -351,7 +351,7 @@ class RequiredFieldsExtractorTest {
         node.addProperty("next", node);
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(node);
+        Map<String, FieldDescriptor> result = extractor.extract(node).requiredFields();
 
         // then
         assertThat(result)
@@ -392,7 +392,7 @@ class RequiredFieldsExtractorTest {
         RequiredFieldsExtractor disc = new RequiredFieldsExtractor(new FieldTypeResolver(openAPI));
 
         // when
-        Map<String, FieldDescriptor> result = disc.extract(root);
+        Map<String, FieldDescriptor> result = disc.extract(root).requiredFields();
 
         // then — paidAt only required when type="invoice.paid"; failureReason only when type="invoice.failed"
         assertThat(result).containsKeys("type", "paidAt", "failureReason");
@@ -436,7 +436,7 @@ class RequiredFieldsExtractorTest {
         RequiredFieldsExtractor disc = new RequiredFieldsExtractor(new FieldTypeResolver(openAPI));
 
         // when
-        Map<String, FieldDescriptor> result = disc.extract(root);
+        Map<String, FieldDescriptor> result = disc.extract(root).requiredFields();
 
         // then
         FieldDescriptor type = result.get("type");
@@ -462,7 +462,7 @@ class RequiredFieldsExtractorTest {
         root.setOneOf(Arrays.asList(first, second));
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(root);
+        Map<String, FieldDescriptor> result = extractor.extract(root).requiredFields();
 
         // then
         assertThat(result.get("a").isConditional()).isFalse();
@@ -482,7 +482,7 @@ class RequiredFieldsExtractorTest {
         schema.addProperty("shippingAddress", sharedAddress);
 
         // when
-        Map<String, FieldDescriptor> result = extractor.extract(schema);
+        Map<String, FieldDescriptor> result = extractor.extract(schema).requiredFields();
 
         // then
         assertThat(result).containsKeys(
