@@ -166,7 +166,7 @@ Both OpenAPI 3.0 (boolean) and OpenAPI 3.1 (numeric) forms of `exclusiveMinimum`
 
 ### References & composition
 
-- **`$ref`** — resolved transparently against `#/components/schemas/*`. A component referenced from multiple paths is expanded at every reference. A `$ref` that can't be resolved fails the build (no `UNKNOWN` rule fallback).
+- **`$ref`** — resolved transparently against `#/components/schemas/*`. A component referenced from multiple paths is expanded at every reference. A `$ref` that can't be resolved fails the build (no `UNKNOWN` rule fallback); the error message includes the endpoint heading (e.g. `POST /customers`) so the broken reference is easy to locate in multi-endpoint specs.
 - **`allOf`** — every branch's `required` list is merged into the parent. Use for "this schema is everything in A plus everything in B".
 - **`oneOf` with a `discriminator`** — each branch's required fields become conditional on the discriminator value. The discriminator property itself is pinned to the enum of mapping keys as an unconditional required field:
   ```yaml
@@ -204,7 +204,7 @@ dependentRequired:
   or not(req.shippingCarrier instance of string))}
 ```
 
-**`if`/`then`** *(value-conditional)* — *"if this field equals a specific value, those fields are required."* Supported subset: a single-property predicate using `const` or `enum`, with `required: [<that property>]` inside the `if`. Anything outside the subset is silently skipped.
+**`if`/`then`** *(value-conditional)* — *"if this field equals a specific value, those fields are required."* Supported subset: a single-property predicate using `const` or `enum`, with `required: [<that property>]` inside the `if`. Anything outside the subset is skipped with a build warning naming the schema location (see [Diagnostics](#diagnostics)).
 
 ```yaml
 properties:
@@ -240,6 +240,16 @@ Known limitations of the generator. Specs may use these constructs, but they won
 - **`additionalProperties` as a schema** (a sub-schema describing allowed value types) is not honored — only the strict boolean `false` case is.
 - **Nested triggers AND-vs-OR**: when a conditionally-required parent contains a conditionally-required child, the child's effective guard is the OR of the parent's and child's triggers, not the AND. Edge case; rare in practice.
 - **Not yet supported:** `uniqueItems`, `minProperties` / `maxProperties`, `readOnly` / `writeOnly`, format-driven validations beyond `date` / `date-time` / `time` / `email` / `uuid` / `uri`, schema-form `additionalProperties`, and input sources beyond `request.body` (headers, query parameters).
+
+### Diagnostics
+
+When the generator detects a supported-but-warned construct it emits a build warning rather than silently dropping the rule. Each message is prefixed `[<location>] …`, where the location is a field path (e.g. `customer.address`), a `$ref` (e.g. `#/components/schemas/Foo`), or `(root)`. Warned constructs:
+
+- `if`/`then` predicates outside the single-property `const` / `enum` subset — the conditional is skipped.
+- `oneOf` without a `discriminator.mapping` — falls back to union-merge.
+- Schema-form `additionalProperties` — only `additionalProperties: false` is honored.
+
+The Maven Mojo wires warnings to `getLog().warn(...)` automatically. Programmatic callers consume them via `Builder.withWarningConsumer(Consumer<String>)`; the default is a silent no-op.
 
 ## Output modes
 
