@@ -1,5 +1,9 @@
 package com.consid.automation.camunda;
 
+import com.consid.automation.camunda.internal.feel.*;
+import com.consid.automation.camunda.internal.model.*;
+import com.consid.automation.camunda.internal.openapi.*;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.camunda.feel.FeelEngine;
@@ -15,6 +19,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -36,6 +41,165 @@ public abstract class AbstractFEELValidationGeneratorIntegrationTest {
     );
 
     protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    /**
+     * One end-to-end test case: a spec, a payload, and the boolean verdict the
+     * activation FEEL is expected to produce. The same record drives the response
+     * facade — response tests use {@link #expectedValid()} as the {@code isValid}
+     * field's expected value while ignoring the body shape.
+     *
+     * <p>{@link #toString()} returns the bare id so JUnit's parameterized test
+     * display shows {@code [1] customers-kitchen-sink-valid} instead of the full
+     * record dump.
+     */
+    public record Scenario(String id,
+                           String openApiResource,
+                           String payloadResource,
+                           boolean expectedValid) {
+        @Override
+        public String toString() {
+            return id;
+        }
+    }
+
+    /**
+     * Single source of truth for integration scenarios, consumed by both facade
+     * tests via {@code @MethodSource}. Each row spans one OpenAPI fixture +
+     * payload combination; new mechanisms get their own fixture pair here.
+     */
+    public static Stream<Scenario> scenarios() {
+        return Stream.of(
+            new Scenario("customers-direct-valid",
+                "openapi/customers-direct-api.json",
+                "payloads/customers-direct-variables.json", true),
+            new Scenario("customers-direct-invalid",
+                "openapi/customers-direct-api.json",
+                "payloads/customers-direct-invalid-variables.json", false),
+            new Scenario("customers-referenced-valid",
+                "openapi/customers-referenced-api.json",
+                "payloads/customers-referenced-variables.json", true),
+            new Scenario("customers-allOf-valid",
+                "openapi/customers-allOf-api.json",
+                "payloads/customers-allOf-variables.json", true),
+            new Scenario("customers-oneOf-valid",
+                "openapi/customers-oneOf-api.json",
+                "payloads/customers-oneOf-variables.json", true),
+            new Scenario("customers-anyOf-valid",
+                "openapi/customers-anyOf-api.json",
+                "payloads/customers-anyOf-variables.json", true),
+            new Scenario("customers-shared-valid",
+                "openapi/customers-shared-api.json",
+                "payloads/customers-shared-variables.json", true),
+            new Scenario("customers-conditional-no-shipping",
+                "openapi/customers-conditional-api.json",
+                "payloads/customers-conditional-no-shipping-variables.json", true),
+            new Scenario("customers-conditional-missing-carrier",
+                "openapi/customers-conditional-api.json",
+                "payloads/customers-conditional-missing-carrier-variables.json", false),
+            new Scenario("customers-value-conditional-invoice",
+                "openapi/customers-value-conditional-api.json",
+                "payloads/customers-value-conditional-invoice-variables.json", true),
+            new Scenario("customers-value-conditional-card-without-number",
+                "openapi/customers-value-conditional-api.json",
+                "payloads/customers-value-conditional-card-without-number-variables.json", false),
+            new Scenario("customers-value-conditional-card-with-number",
+                "openapi/customers-value-conditional-api.json",
+                "payloads/customers-value-conditional-card-with-number-variables.json", true),
+            new Scenario("orders-no-delivery",
+                "openapi/orders-conditional-nested-api.json",
+                "payloads/orders-no-delivery-variables.json", true),
+            new Scenario("orders-needs-delivery-without-address",
+                "openapi/orders-conditional-nested-api.json",
+                "payloads/orders-needs-delivery-without-address-variables.json", false),
+            new Scenario("orders-needs-delivery-with-address",
+                "openapi/orders-conditional-nested-api.json",
+                "payloads/orders-needs-delivery-with-address-variables.json", true),
+            new Scenario("customers-constraints-valid",
+                "openapi/customers-constraints-api.json",
+                "payloads/customers-constraints-valid-variables.json", true),
+            new Scenario("customers-constraints-tags-empty",
+                "openapi/customers-constraints-api.json",
+                "payloads/customers-constraints-tags-empty-variables.json", false),
+            new Scenario("customers-constraints-tags-too-many",
+                "openapi/customers-constraints-api.json",
+                "payloads/customers-constraints-tags-too-many-variables.json", false),
+            new Scenario("customers-constraints-handle-too-short",
+                "openapi/customers-constraints-api.json",
+                "payloads/customers-constraints-handle-too-short-variables.json", false),
+            new Scenario("customers-constraints-handle-too-long",
+                "openapi/customers-constraints-api.json",
+                "payloads/customers-constraints-handle-too-long-variables.json", false),
+            new Scenario("customers-constraints-code-pattern-miss",
+                "openapi/customers-constraints-api.json",
+                "payloads/customers-constraints-code-pattern-miss-variables.json", false),
+            new Scenario("customers-number-constraints-valid",
+                "openapi/customers-number-constraints-api.json",
+                "payloads/customers-number-constraints-valid-variables.json", true),
+            new Scenario("customers-number-constraints-age-below-min",
+                "openapi/customers-number-constraints-api.json",
+                "payloads/customers-number-constraints-age-below-min-variables.json", false),
+            new Scenario("customers-number-constraints-age-above-max",
+                "openapi/customers-number-constraints-api.json",
+                "payloads/customers-number-constraints-age-above-max-variables.json", false),
+            new Scenario("customers-number-constraints-discount-at-exclusive-min",
+                "openapi/customers-number-constraints-api.json",
+                "payloads/customers-number-constraints-discount-at-exclusive-min-variables.json", false),
+            new Scenario("customers-number-constraints-points-not-multiple",
+                "openapi/customers-number-constraints-api.json",
+                "payloads/customers-number-constraints-points-not-multiple-variables.json", false),
+            new Scenario("orders-array-items-valid",
+                "openapi/orders-array-items-api.json",
+                "payloads/orders-array-items-valid-variables.json", true),
+            new Scenario("orders-array-items-missing-sku",
+                "openapi/orders-array-items-api.json",
+                "payloads/orders-array-items-missing-sku-variables.json", false),
+            new Scenario("orders-array-items-bad-sku-pattern",
+                "openapi/orders-array-items-api.json",
+                "payloads/orders-array-items-bad-sku-pattern-variables.json", false),
+            new Scenario("orders-array-items-quantity-below-min",
+                "openapi/orders-array-items-api.json",
+                "payloads/orders-array-items-quantity-below-min-variables.json", false),
+            new Scenario("events-formats-valid",
+                "openapi/events-formats-and-const-api.json",
+                "payloads/events-formats-valid-variables.json", true),
+            new Scenario("events-formats-bad-uuid",
+                "openapi/events-formats-and-const-api.json",
+                "payloads/events-formats-bad-uuid-variables.json", false),
+            new Scenario("events-formats-bad-email",
+                "openapi/events-formats-and-const-api.json",
+                "payloads/events-formats-bad-email-variables.json", false),
+            new Scenario("events-formats-const-mismatch",
+                "openapi/events-formats-and-const-api.json",
+                "payloads/events-formats-const-mismatch-variables.json", false),
+            new Scenario("customers-strict-valid",
+                "openapi/customers-strict-api.json",
+                "payloads/customers-strict-valid-variables.json", true),
+            new Scenario("customers-strict-extra-root-key",
+                "openapi/customers-strict-api.json",
+                "payloads/customers-strict-extra-root-key-variables.json", false),
+            new Scenario("customers-strict-extra-nested-key",
+                "openapi/customers-strict-api.json",
+                "payloads/customers-strict-extra-nested-key-variables.json", false),
+            new Scenario("events-discriminator-paid-valid",
+                "openapi/events-discriminator-api.json",
+                "payloads/events-discriminator-paid-valid-variables.json", true),
+            new Scenario("events-discriminator-failed-valid",
+                "openapi/events-discriminator-api.json",
+                "payloads/events-discriminator-failed-valid-variables.json", true),
+            new Scenario("events-discriminator-paid-missing-paidat",
+                "openapi/events-discriminator-api.json",
+                "payloads/events-discriminator-paid-missing-paidat-variables.json", false),
+            new Scenario("events-discriminator-unknown-type",
+                "openapi/events-discriminator-api.json",
+                "payloads/events-discriminator-unknown-type-variables.json", false),
+            new Scenario("customers-kitchen-sink-valid",
+                "openapi/customers-kitchen-sink-api.json",
+                "payloads/customers-kitchen-sink-valid-variables.json", true),
+            new Scenario("customers-kitchen-sink-invalid",
+                "openapi/customers-kitchen-sink-api.json",
+                "payloads/customers-kitchen-sink-invalid-variables.json", false)
+        );
+    }
 
     protected Path resolveResourcePath(String resourceName) {
         URL resourceUrl = getClass().getClassLoader().getResource(resourceName);

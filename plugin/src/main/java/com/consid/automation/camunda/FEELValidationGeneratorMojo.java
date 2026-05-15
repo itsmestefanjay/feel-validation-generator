@@ -94,6 +94,7 @@ public class FEELValidationGeneratorMojo extends AbstractMojo {
                 .withFailStatusCode(failStatusCode)
                 .withHttpMethods(methodList)
                 .withMediaType(mediaType)
+                .withWarningConsumer(message -> getLog().warn(message))
                 .build();
             generator.generate();
 

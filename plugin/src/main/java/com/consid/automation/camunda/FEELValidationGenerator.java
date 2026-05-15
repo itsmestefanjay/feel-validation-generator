@@ -1,5 +1,10 @@
 package com.consid.automation.camunda;
 
+import com.consid.automation.camunda.internal.Diagnostics;
+import com.consid.automation.camunda.internal.feel.*;
+import com.consid.automation.camunda.internal.model.*;
+import com.consid.automation.camunda.internal.openapi.*;
+
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.parser.OpenAPIV3Parser;
@@ -11,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
  * Entry point for FEEL validation generation. Coordinates the pipeline:
@@ -24,6 +30,7 @@ public class FEELValidationGenerator {
     private final ValidationRuleBuilder ruleBuilder;
     private final OpenApiOperationScanner scanner;
     private final RuleFileWriter writer;
+    private final Diagnostics diagnostics;
 
     private FEELValidationGenerator(Builder builder) {
         this.openApiSpecPath = builder.openApiSpecPath;
@@ -33,6 +40,7 @@ public class FEELValidationGenerator {
             : new FEELRuleGenerator(builder.addResponse, builder.successStatusCode, builder.failureStatusCode);
         this.scanner = new OpenApiOperationScanner(builder.httpMethods, builder.mediaType);
         this.writer = new RuleFileWriter();
+        this.diagnostics = new Diagnostics(builder.warningConsumer);
     }
 
     public void generate() throws IOException {
@@ -52,10 +60,11 @@ public class FEELValidationGenerator {
 
     private Map<String, List<ValidationRule>> buildRules(OpenAPI openAPI,
                                                           Map<String, Schema<?>> schemasByEndpoint) {
-        RequiredFieldsExtractor fieldsExtractor = new RequiredFieldsExtractor(new FieldTypeResolver(openAPI));
+        RequiredFieldsExtractor fieldsExtractor =
+            new RequiredFieldsExtractor(new FieldTypeResolver(openAPI, diagnostics), diagnostics);
         Map<String, List<ValidationRule>> rulesByEndpoint = new LinkedHashMap<>();
         schemasByEndpoint.forEach((heading, schema) -> {
-            List<ValidationRule> rules = rulesFor(schema, fieldsExtractor);
+            List<ValidationRule> rules = rulesFor(heading, schema, fieldsExtractor);
             if (!rules.isEmpty()) {
                 rulesByEndpoint.put(heading, rules);
             }
@@ -63,10 +72,22 @@ public class FEELValidationGenerator {
         return rulesByEndpoint;
     }
 
-    private List<ValidationRule> rulesFor(Schema<?> schema, RequiredFieldsExtractor fieldsExtractor) {
+    private List<ValidationRule> rulesFor(String heading, Schema<?> schema,
+                                          RequiredFieldsExtractor fieldsExtractor) {
+        ExtractionResult extracted;
+        try {
+            extracted = fieldsExtractor.extract(schema);
+        } catch (IllegalStateException e) {
+            // Attach endpoint context so the user can pinpoint a broken $ref in large specs.
+            throw new IllegalStateException(
+                "Failed processing " + heading + ": " + e.getMessage(), e);
+        }
         List<ValidationRule> rules = new ArrayList<>();
-        fieldsExtractor.extract(schema).forEach((fieldPath, descriptor) ->
+        extracted.requiredFields().forEach((fieldPath, descriptor) ->
             rules.add(ruleBuilder.createRule(fieldPath, descriptor)));
+        if (extracted.hasRootClosure()) {
+            rules.add(ruleBuilder.createRootObjectRule(extracted.rootClosure()));
+        }
         return rules;
     }
 
@@ -83,6 +104,7 @@ public class FEELValidationGenerator {
         private List<String> httpMethods = List.of("POST", "PUT", "PATCH");
         private String mediaType = "application/json";
         private ValidationRuleBuilder customRuleBuilder;
+        private Consumer<String> warningConsumer = message -> {};
 
         private Builder() {
         }
@@ -124,6 +146,18 @@ public class FEELValidationGenerator {
 
         Builder withRuleBuilder(ValidationRuleBuilder ruleBuilder) {
             this.customRuleBuilder = ruleBuilder;
+            return this;
+        }
+
+        /**
+         * Receive each detected-but-unsupported construct the generator skipped
+         * (e.g. an {@code if}/{@code then} predicate shape outside the supported
+         * subset, an {@code oneOf} missing its {@code discriminator.mapping}).
+         * Messages are pre-formatted with the schema location. Defaults to a
+         * silent no-op; the Maven Mojo wires this to {@code getLog().warn(...)}.
+         */
+        public Builder withWarningConsumer(Consumer<String> warningConsumer) {
+            this.warningConsumer = Objects.requireNonNull(warningConsumer, "warningConsumer");
             return this;
         }
 

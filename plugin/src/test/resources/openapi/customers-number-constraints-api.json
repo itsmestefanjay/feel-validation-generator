@@ -1,0 +1,41 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Number Constraint Coverage API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/customers/number-constraints": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["age", "pointsBalance", "discount"],
+                "properties": {
+                  "age": {
+                    "type": "integer",
+                    "minimum": 18,
+                    "maximum": 120
+                  },
+                  "pointsBalance": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "multipleOf": 100
+                  },
+                  "discount": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "exclusiveMaximum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Event Formats and Const API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/events": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["eventId", "email", "callbackUrl", "schemaVersion"],
+                "properties": {
+                  "eventId": { "type": "string", "format": "uuid" },
+                  "email": { "type": "string", "format": "email" },
+                  "callbackUrl": { "type": "string", "format": "uri" },
+                  "schemaVersion": { "type": "string", "const": "v1" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

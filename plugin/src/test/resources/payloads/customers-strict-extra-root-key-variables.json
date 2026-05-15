@@ -1,0 +1,7 @@
+{
+  "customerId": "C-001",
+  "profile": {
+    "name": "Alice"
+  },
+  "unexpectedField": "rogue"
+}

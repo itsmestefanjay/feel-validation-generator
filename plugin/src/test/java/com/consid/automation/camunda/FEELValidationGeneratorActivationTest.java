@@ -1,6 +1,12 @@
 package com.consid.automation.camunda;
 
+import com.consid.automation.camunda.internal.feel.*;
+import com.consid.automation.camunda.internal.model.*;
+import com.consid.automation.camunda.internal.openapi.*;
+
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -9,177 +15,49 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Integration tests covering activation-condition generation.
- * Each scenario builds FEEL from a fixture and evaluates it against a payload;
- * the assertion is the FEEL engine's verdict, not the textual output.
+ * Drives the shared {@link AbstractFEELValidationGeneratorIntegrationTest#scenarios()
+ * scenario table} — each row generates FEEL, evaluates every emitted expression
+ * against the Camunda FEEL engine, and asserts the engine's verdict matches the
+ * scenario's expected boolean. The assertion is the engine's result, not the
+ * textual output.
  */
 public class FEELValidationGeneratorActivationTest extends AbstractFEELValidationGeneratorIntegrationTest {
 
     @Test
-    public void test_customers_direct_activation_does_evaluate_true_for_valid_payload_as_expected() throws IOException {
-        runActivationScenario(
-            "customers-direct-valid",
-            "openapi/customers-direct-api.json",
-            "payloads/customers-direct-variables.json",
-            true
-        );
-    }
-
-    @Test
-    public void test_customers_direct_activation_does_evaluate_false_for_empty_payload_as_expected() throws IOException {
-        runActivationScenario(
-            "customers-direct-invalid",
-            "openapi/customers-direct-api.json",
-            "payloads/customers-direct-invalid-variables.json",
-            false
-        );
-    }
-
-    @Test
-    public void test_customers_referenced_activation_does_evaluate_true_for_valid_payload_as_expected() throws IOException {
-        runActivationScenario(
-            "customers-referenced-valid",
-            "openapi/customers-referenced-api.json",
-            "payloads/customers-referenced-variables.json",
-            true
-        );
-    }
-
-    @Test
-    public void test_customers_allOf_activation_does_evaluate_true_for_valid_payload_as_expected() throws IOException {
-        runActivationScenario(
-            "customers-allOf-valid",
-            "openapi/customers-allOf-api.json",
-            "payloads/customers-allOf-variables.json",
-            true
-        );
-    }
-
-    @Test
-    public void test_customers_oneOf_activation_does_evaluate_true_for_valid_payload_as_expected() throws IOException {
-        runActivationScenario(
-            "customers-oneOf-valid",
-            "openapi/customers-oneOf-api.json",
-            "payloads/customers-oneOf-variables.json",
-            true
-        );
-    }
-
-    @Test
-    public void test_customers_anyOf_activation_does_evaluate_true_for_valid_payload_as_expected() throws IOException {
-        runActivationScenario(
-            "customers-anyOf-valid",
-            "openapi/customers-anyOf-api.json",
-            "payloads/customers-anyOf-variables.json",
-            true
-        );
-    }
-
-    @Test
-    public void test_customers_shared_component_activation_does_evaluate_true_for_valid_payload_as_expected() throws IOException {
-        runActivationScenario(
-            "customers-shared-valid",
-            "openapi/customers-shared-api.json",
-            "payloads/customers-shared-variables.json",
-            true
-        );
-    }
-
-    @Test
-    public void test_customers_conditional_activation_does_pass_when_trigger_field_is_absent_as_expected() throws IOException {
-        runActivationScenario(
-            "customers-conditional-no-shipping",
-            "openapi/customers-conditional-api.json",
-            "payloads/customers-conditional-no-shipping-variables.json",
-            true
-        );
-    }
-
-    @Test
-    public void test_customers_conditional_activation_does_fail_when_trigger_present_and_dependent_missing_as_expected() throws IOException {
-        runActivationScenario(
-            "customers-conditional-missing-carrier",
-            "openapi/customers-conditional-api.json",
-            "payloads/customers-conditional-missing-carrier-variables.json",
-            false
-        );
-    }
-
-    @Test
-    public void test_customers_value_conditional_activation_does_pass_when_trigger_value_does_not_match_as_expected() throws IOException {
-        runActivationScenario(
-            "customers-value-conditional-invoice",
-            "openapi/customers-value-conditional-api.json",
-            "payloads/customers-value-conditional-invoice-variables.json",
-            true
-        );
-    }
-
-    @Test
-    public void test_customers_value_conditional_activation_does_fail_when_trigger_value_matches_and_dependent_missing_as_expected() throws IOException {
-        runActivationScenario(
-            "customers-value-conditional-card-without-number",
-            "openapi/customers-value-conditional-api.json",
-            "payloads/customers-value-conditional-card-without-number-variables.json",
-            false
-        );
-    }
-
-    @Test
-    public void test_customers_value_conditional_activation_does_pass_when_trigger_value_matches_and_dependent_present_as_expected() throws IOException {
-        runActivationScenario(
-            "customers-value-conditional-card-with-number",
-            "openapi/customers-value-conditional-api.json",
-            "payloads/customers-value-conditional-card-with-number-variables.json",
-            true
-        );
-    }
-
-    @Test
-    public void test_orders_nested_conditional_activation_does_pass_when_trigger_value_does_not_match_as_expected() throws IOException {
-        runActivationScenario(
-            "orders-no-delivery",
-            "openapi/orders-conditional-nested-api.json",
-            "payloads/orders-no-delivery-variables.json",
-            true
-        );
-    }
-
-    @Test
-    public void test_orders_nested_conditional_activation_does_fail_when_trigger_matches_and_inner_field_missing_as_expected() throws IOException {
-        runActivationScenario(
-            "orders-needs-delivery-without-address",
-            "openapi/orders-conditional-nested-api.json",
-            "payloads/orders-needs-delivery-without-address-variables.json",
-            false
-        );
-    }
-
-    @Test
-    public void test_orders_nested_conditional_activation_does_pass_when_trigger_matches_and_all_required_present_as_expected() throws IOException {
-        runActivationScenario(
-            "orders-needs-delivery-with-address",
-            "openapi/orders-conditional-nested-api.json",
-            "payloads/orders-needs-delivery-with-address-variables.json",
-            true
-        );
-    }
-
-    private void runActivationScenario(String scenarioId,
-                                       String openApiResource,
-                                       String payloadResource,
-                                       boolean expectedValid) throws IOException {
-        // given
-        Path specFile = resolveResourcePath(openApiResource);
-        Path outputFile = tempDir.resolve(scenarioId + ".feel");
+    public void test_unresolved_ref_does_include_endpoint_context_in_error_as_expected() {
+        // given — a spec with a $ref pointing at a missing component
+        Path specFile = resolveResourcePath("openapi/broken-ref-api.json");
+        Path outputFile = tempDir.resolve("broken.feel");
         var generator = FEELValidationGenerator.builder()
             .withOpenApiPath(specFile.toAbsolutePath())
             .withOutputFilePath(outputFile.toAbsolutePath())
             .withResponse(false)
             .build();
-        Map<String, Object> context = buildEvaluationContext(loadJsonResource(payloadResource));
+
+        // when / then — the error should carry both the bad $ref AND the endpoint heading
+        // so the user can locate the problem in a multi-endpoint spec.
+        assertThatThrownBy(generator::generate)
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("POST /customers/broken")
+            .hasMessageContaining("#/components/schemas/DoesNotExist");
+    }
+
+    @ParameterizedTest
+    @MethodSource("com.consid.automation.camunda.AbstractFEELValidationGeneratorIntegrationTest#scenarios")
+    public void test_activation_does_evaluate_to_expected_verdict_as_expected(Scenario scenario) throws IOException {
+        // given
+        Path specFile = resolveResourcePath(scenario.openApiResource());
+        Path outputFile = tempDir.resolve(scenario.id() + ".feel");
+        var generator = FEELValidationGenerator.builder()
+            .withOpenApiPath(specFile.toAbsolutePath())
+            .withOutputFilePath(outputFile.toAbsolutePath())
+            .withResponse(false)
+            .build();
+        Map<String, Object> context = buildEvaluationContext(loadJsonResource(scenario.payloadResource()));
 
         // when
         generator.generate();
@@ -188,17 +66,17 @@ public class FEELValidationGeneratorActivationTest extends AbstractFEELValidatio
 
         // then
         assertThat(expressions)
-            .as("FEEL expressions should exist for %s", scenarioId)
+            .as("FEEL expressions should exist for %s", scenario.id())
             .isNotEmpty();
         for (String expression : expressions) {
             var evaluation = FEEL_ENGINE.evalExpression(expression, context);
             assertThat(evaluation.isRight())
-                .as("FEEL expression should evaluate for %s", scenarioId)
+                .as("FEEL expression should evaluate for %s", scenario.id())
                 .withFailMessage(() -> "FEEL evaluation failure: " + evaluation.left().get())
                 .isTrue();
             assertThat((Boolean) evaluation.getOrElse(null))
-                .as("Activation result for %s", scenarioId)
-                .isEqualTo(expectedValid);
+                .as("Activation result for %s", scenario.id())
+                .isEqualTo(scenario.expectedValid());
         }
     }
 }
