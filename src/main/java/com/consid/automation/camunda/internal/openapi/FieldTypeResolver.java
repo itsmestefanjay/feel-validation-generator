@@ -18,7 +18,7 @@ import java.util.Set;
  * Maps an OpenAPI schema to a {@link FieldDescriptor}. Owns the OpenAPI-side
  * vocabulary (type/format/minimum/maximum/etc.) and produces a single sealed
  * {@link TypeInfo} per schema. Stays out of FEEL rendering — that's
- * the {@link com.consid.automation.camunda.feel.FEELExpressionBuilder}'s job.
+ * the {@link com.consid.automation.camunda.internal.feel.FEELExpressionBuilder}'s job.
  */
 public class FieldTypeResolver {
 

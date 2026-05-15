@@ -53,8 +53,8 @@ public class FEELRuleGenerator implements ValidationRuleBuilder {
                       int failureStatusCode,
                       FEELExpressionBuilder expressionBuilder) {
         this.addResponse = addResponse;
-        this.successStatusCode = validateStatusCode(successStatusCode, "successStatusCode");
-        this.failureStatusCode = validateStatusCode(failureStatusCode, "failStatusCode");
+        this.successStatusCode = successStatusCode;
+        this.failureStatusCode = failureStatusCode;
         this.expressionBuilder = expressionBuilder;
     }
 
@@ -105,14 +105,5 @@ public class FEELRuleGenerator implements ValidationRuleBuilder {
                 + "\", invalid: " + rule.invalidExpression() + " }";
         }
         return "{invalid: " + rule.invalidExpression() + "}";
-    }
-
-    private int validateStatusCode(int statusCode, String name) {
-        if (statusCode < 100 || statusCode > 599) {
-            throw new IllegalArgumentException(
-                name + " must be a valid HTTP status code (100-599): " + statusCode
-            );
-        }
-        return statusCode;
     }
 }
