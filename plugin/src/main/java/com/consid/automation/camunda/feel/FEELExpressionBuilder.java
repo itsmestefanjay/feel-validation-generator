@@ -2,18 +2,21 @@ package com.consid.automation.camunda.feel;
 
 import com.consid.automation.camunda.model.*;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Generates FEEL expressions for validating fields.
- * Composition: a field is invalid when it is missing (and required) or present
- * in a form that violates its type / enum / size / pattern constraints. The
- * two halves are kept separate here so nullable fields can substitute the
- * missing-check for an is-present check.
+ * Renders a {@link FieldDescriptor} as a FEEL "violation" expression — true
+ * means the field is invalid. The body is a flat OR-chain composed of:
+ * <ol>
+ *   <li>missing-or-present guard (depends on {@code nullable}),</li>
+ *   <li>type clause + type-specific constraint clauses (dispatched on the
+ *       sealed {@link TypeInfo}),</li>
+ *   <li>enum membership clause when an allowed-value set is set.</li>
+ * </ol>
+ * Conditional triggers wrap the body with a {@code guard and (body)} clause.
  */
 public class FEELExpressionBuilder {
 
@@ -34,75 +37,90 @@ public class FEELExpressionBuilder {
     }
 
     private String buildViolation(String fieldName, FieldDescriptor descriptor) {
-        List<String> parts = new ArrayList<>();
-        addIfNotNull(parts, typeViolation(fieldName, descriptor.type()));
-        addAll(parts, sizeViolations(fieldName, descriptor));
+        List<String> parts = typeViolations(fieldName, descriptor.typeInfo());
         if (descriptor.hasEnum()) {
             parts.add("not(" + fieldName + " in (" + renderLiterals(descriptor.enumValues()) + "))");
         }
         return parts.isEmpty() ? null : String.join(" or ", parts);
     }
 
-    private String typeViolation(String fieldName, FieldType type) {
-        return switch (type) {
-            case STRING -> "not(" + fieldName + " instance of string)";
-            case NUMBER -> "not(" + fieldName + " instance of number)";
-            case BOOLEAN -> "not(" + fieldName + " instance of boolean)";
-            case ARRAY -> "not(" + fieldName + " instance of list)";
-            case OBJECT -> "not(" + fieldName + " instance of context)";
+    /**
+     * Pattern-matches on the type info; each arm emits its own OR-chain of
+     * "value violates the type" clauses (type-instance check first, then any
+     * declared size / range / pattern bounds).
+     */
+    private List<String> typeViolations(String fieldName, TypeInfo typeInfo) {
+        return switch (typeInfo) {
+            case StringTypeInfo s -> stringViolations(fieldName, s);
+            case NumberTypeInfo n -> numberViolations(fieldName, n);
+            case BooleanTypeInfo b -> singletonOrEmpty("not(" + fieldName + " instance of boolean)");
+            case ArrayTypeInfo a -> arrayViolations(fieldName, a);
+            case ObjectTypeInfo o -> objectViolations(fieldName, o);
+            case UnknownTypeInfo u -> List.of();
+        };
+    }
+
+    private List<String> stringViolations(String fieldName, StringTypeInfo info) {
+        List<String> parts = new ArrayList<>();
+        parts.add(typeClause(fieldName, info.format()));
+        if (info.hasMinLength()) {
+            parts.add("string length(" + fieldName + ")<" + info.minLength());
+        }
+        if (info.hasMaxLength()) {
+            parts.add("string length(" + fieldName + ")>" + info.maxLength());
+        }
+        if (info.hasPattern()) {
+            parts.add("not(matches(" + fieldName + ", \"" + escapeLiteral(info.pattern()) + "\"))");
+        }
+        return parts;
+    }
+
+    /** FEEL has dedicated parsers for date/time families; plain strings use the type-instance check. */
+    private String typeClause(String fieldName, StringTypeInfo.StringFormat format) {
+        return switch (format) {
+            case PLAIN -> "not(" + fieldName + " instance of string)";
             case DATE -> "date(" + fieldName + ")=null";
             case DATE_TIME -> "date and time(" + fieldName + ")=null";
             case TIME -> "time(" + fieldName + ")=null";
-            case UNKNOWN -> null;
         };
     }
 
-    /**
-     * Emits the optional size / shape checks tied to a field's type family.
-     * Returned in the order the violations should appear in the final OR-chain
-     * so the rendered FEEL reads min-first, then max, then pattern.
-     */
-    private List<String> sizeViolations(String fieldName, FieldDescriptor descriptor) {
-        return switch (descriptor.type()) {
-            case ARRAY -> arrayViolations(fieldName, descriptor.arrayConstraints());
-            case STRING, DATE, DATE_TIME, TIME -> stringViolations(fieldName, descriptor.stringConstraints());
-            case NUMBER -> numberViolations(fieldName, descriptor.numberConstraints());
-            case OBJECT -> objectViolations(fieldName, descriptor.objectConstraints());
-            default -> List.of();
-        };
-    }
-
-    private List<String> objectViolations(String fieldName, ObjectConstraints constraints) {
-        if (!constraints.isClosed()) {
-            return List.of();
-        }
-        String list = constraints.allowedKeys().stream()
-            .sorted()
-            .map(k -> "\"" + escapeLiteral(k) + "\"")
-            .collect(Collectors.joining(", "));
-        // Outer parens (same reason as `some`): FEEL's `every ... satisfies <expr>`
-        // is greedy and would consume tokens past the intended end of the clause.
-        // `get entries(ctx).key` projects out the list of keys — Camunda FEEL has
-        // no direct `get keys(...)` function. Outer parens defend against the
-        // greedy `every ... satisfies <expr>` operator consuming surrounding tokens.
-        return List.of("(not(every k in get entries(" + fieldName
-            + ").key satisfies (k in (" + list + "))))");
-    }
-
-    private List<String> arrayViolations(String fieldName, ArrayConstraints constraints) {
+    private List<String> numberViolations(String fieldName, NumberTypeInfo info) {
         List<String> parts = new ArrayList<>();
-        if (constraints.hasMinItems()) {
-            parts.add("count(" + fieldName + ")<" + constraints.minItems());
+        parts.add("not(" + fieldName + " instance of number)");
+        if (info.hasMinimum()) {
+            parts.add(fieldName + "<" + renderNumber(info.minimum()));
         }
-        if (constraints.hasMaxItems()) {
-            parts.add("count(" + fieldName + ")>" + constraints.maxItems());
+        if (info.hasExclusiveMinimum()) {
+            parts.add(fieldName + "<=" + renderNumber(info.exclusiveMinimum()));
         }
-        if (constraints.hasItems()) {
+        if (info.hasMaximum()) {
+            parts.add(fieldName + ">" + renderNumber(info.maximum()));
+        }
+        if (info.hasExclusiveMaximum()) {
+            parts.add(fieldName + ">=" + renderNumber(info.exclusiveMaximum()));
+        }
+        if (info.hasMultipleOf()) {
+            parts.add("modulo(" + fieldName + ", " + renderNumber(info.multipleOf()) + ")!=0");
+        }
+        return parts;
+    }
+
+    private List<String> arrayViolations(String fieldName, ArrayTypeInfo info) {
+        List<String> parts = new ArrayList<>();
+        parts.add("not(" + fieldName + " instance of list)");
+        if (info.hasMinItems()) {
+            parts.add("count(" + fieldName + ")<" + info.minItems());
+        }
+        if (info.hasMaxItems()) {
+            parts.add("count(" + fieldName + ")>" + info.maxItems());
+        }
+        if (info.hasItems()) {
             // Outer parens around the whole `some ... satisfies ...` clause: FEEL's
-            // quantifiedOp body is greedy and would otherwise consume tokens past the
-            // intended end, breaking the surrounding OR-chain and the rules array.
-            parts.add("(some e in " + fieldName
-                + " satisfies (" + elementViolation(constraints.items(), constraints.itemRequiredFields()) + "))");
+            // quantifiedOp body is greedy and would otherwise consume tokens past
+            // the intended end, breaking the surrounding OR-chain.
+            parts.add("(some e in " + fieldName + " satisfies ("
+                + elementViolation(info.items(), info.itemRequiredFields()) + "))");
         }
         return parts;
     }
@@ -121,47 +139,21 @@ public class FEELExpressionBuilder {
         return String.join(" or ", parts);
     }
 
-    private List<String> stringViolations(String fieldName, StringConstraints constraints) {
+    private List<String> objectViolations(String fieldName, ObjectTypeInfo info) {
         List<String> parts = new ArrayList<>();
-        if (constraints.hasMinLength()) {
-            parts.add("string length(" + fieldName + ")<" + constraints.minLength());
-        }
-        if (constraints.hasMaxLength()) {
-            parts.add("string length(" + fieldName + ")>" + constraints.maxLength());
-        }
-        if (constraints.hasPattern()) {
-            parts.add("not(matches(" + fieldName + ", \"" + escapeLiteral(constraints.pattern()) + "\"))");
+        parts.add("not(" + fieldName + " instance of context)");
+        if (info.isClosed()) {
+            String list = info.allowedKeys().stream()
+                .sorted()
+                .map(k -> "\"" + escapeLiteral(k) + "\"")
+                .collect(Collectors.joining(", "));
+            // `get entries(ctx).key` projects out the list of keys (Camunda FEEL has
+            // no direct `get keys(...)` function). Outer parens defend against the
+            // greedy `every ... satisfies <expr>` operator consuming surrounding tokens.
+            parts.add("(not(every k in get entries(" + fieldName
+                + ").key satisfies (k in (" + list + "))))");
         }
         return parts;
-    }
-
-    private List<String> numberViolations(String fieldName, NumberConstraints constraints) {
-        List<String> parts = new ArrayList<>();
-        if (constraints.hasMinimum()) {
-            parts.add(fieldName + "<" + renderNumber(constraints.minimum()));
-        }
-        if (constraints.hasExclusiveMinimum()) {
-            parts.add(fieldName + "<=" + renderNumber(constraints.exclusiveMinimum()));
-        }
-        if (constraints.hasMaximum()) {
-            parts.add(fieldName + ">" + renderNumber(constraints.maximum()));
-        }
-        if (constraints.hasExclusiveMaximum()) {
-            parts.add(fieldName + ">=" + renderNumber(constraints.exclusiveMaximum()));
-        }
-        if (constraints.hasMultipleOf()) {
-            parts.add("modulo(" + fieldName + ", " + renderNumber(constraints.multipleOf()) + ")!=0");
-        }
-        return parts;
-    }
-
-    /**
-     * Render a BigDecimal as a FEEL number literal. {@link BigDecimal#toString()}
-     * can emit scientific notation ({@code 1E+2}) which FEEL would not parse;
-     * {@link BigDecimal#toPlainString()} keeps the literal numeric.
-     */
-    private static String renderNumber(BigDecimal value) {
-        return value.toPlainString();
     }
 
     private String guardExpression(List<Trigger> dependsOn) {
@@ -197,19 +189,17 @@ public class FEELExpressionBuilder {
             .collect(Collectors.joining(", "));
     }
 
+    private static String renderNumber(java.math.BigDecimal value) {
+        return value.toPlainString();
+    }
+
     private static String escapeLiteral(String value) {
         return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
-    private static void addIfNotNull(List<String> parts, String part) {
-        if (part != null) {
-            parts.add(part);
-        }
-    }
-
-    private static void addAll(List<String> parts, List<String> additions) {
-        if (!additions.isEmpty()) {
-            parts.addAll(additions);
-        }
+    private static List<String> singletonOrEmpty(String value) {
+        List<String> parts = new ArrayList<>();
+        parts.add(value);
+        return parts;
     }
 }

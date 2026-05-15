@@ -15,27 +15,26 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Extracts required fields from OpenAPI schemas.
+ * Walks an OpenAPI schema and produces a path-keyed map of {@link FieldDescriptor}s
+ * for everything the FEEL generator must enforce: direct required fields,
+ * dependent-required dependents, if/then dependents, discriminated oneOf
+ * branches, and nested-object inner required fields with trigger inheritance.
  */
 public class RequiredFieldsExtractor {
 
-    private final FieldTypeResolver typeResolver;
-
-    public RequiredFieldsExtractor(FieldTypeResolver typeResolver) {
-        this.typeResolver = typeResolver;
-    }
-
-    /**
-     * Extracts all required fields from a schema.
-     * Returns a map of field paths to their types.
-     */
     /**
      * Reserved field-path key for a synthetic root-object descriptor — empty
      * string can never collide with a real property name. The rule generator
      * detects this key and emits a rule against {@code req} directly (no
      * dotted path prefix).
      */
-    static final String ROOT_OBJECT_KEY = "";
+    public static final String ROOT_OBJECT_KEY = "";
+
+    private final FieldTypeResolver typeResolver;
+
+    public RequiredFieldsExtractor(FieldTypeResolver typeResolver) {
+        this.typeResolver = typeResolver;
+    }
 
     public Map<String, FieldDescriptor> extract(Schema<?> schema) {
         Map<String, FieldDescriptor> requiredFields = new LinkedHashMap<>();
@@ -46,12 +45,11 @@ public class RequiredFieldsExtractor {
     }
 
     /**
-     * When the request body's root schema declares {@code additionalProperties: false},
-     * surface a synthetic OBJECT descriptor under {@link #ROOT_OBJECT_KEY} so the
-     * downstream rule generator can emit a "no unexpected top-level keys" rule.
-     * Nested objects with the same keyword are handled by the regular
-     * descriptor-driven flow; only the root needs this extra wiring because it
-     * has no parent property to attach to.
+     * When the root schema declares {@code additionalProperties: false}, emit a
+     * synthetic OBJECT descriptor under {@link #ROOT_OBJECT_KEY} so the rule
+     * generator can produce a "no unexpected top-level keys" rule. Nested
+     * objects with the same keyword are handled by the regular descriptor-driven
+     * flow.
      */
     private void addRootObjectConstraintsIfClosed(Schema<?> root,
                                                   Map<String, FieldDescriptor> requiredFields) {
@@ -59,10 +57,7 @@ public class RequiredFieldsExtractor {
             return;
         }
         FieldDescriptor rootDescriptor = typeResolver.resolve(root);
-        if (rootDescriptor.type() != FieldType.OBJECT) {
-            return;
-        }
-        if (!rootDescriptor.objectConstraints().isClosed()) {
+        if (!(rootDescriptor.typeInfo() instanceof ObjectTypeInfo object) || !object.isClosed()) {
             return;
         }
         requiredFields.put(ROOT_OBJECT_KEY, rootDescriptor);
@@ -70,12 +65,11 @@ public class RequiredFieldsExtractor {
 
     /**
      * Recursively collects required fields from a schema.
-     * {@code activeStack} tracks schemas currently on the recursion path so that
-     * a self-referential schema terminates while a component reused at multiple
-     * field paths is still expanded each time.
-     * {@code inheritedTriggers} carries the conditional triggers of an ancestor
-     * down into a nested object's required fields, so they inherit the parent's
-     * conditional requirement.
+     * {@code activeStack} tracks schemas currently on the recursion path so a
+     * self-referential schema terminates while a component reused at multiple
+     * field paths is still expanded each time. {@code inheritedTriggers} carry
+     * conditional triggers from an ancestor down into a nested object's required
+     * fields.
      */
     private void collectRequiredFields(Schema<?> schema, Map<String, FieldDescriptor> requiredFields,
                                        String pathPrefix, Set<Schema<?>> activeStack,
@@ -83,12 +77,10 @@ public class RequiredFieldsExtractor {
         if (schema == null) {
             return;
         }
-
         schema = typeResolver.resolveSchemaReference(schema);
         if (schema == null) {
             return;
         }
-
         if (!activeStack.add(schema)) {
             return;
         }
@@ -110,44 +102,31 @@ public class RequiredFieldsExtractor {
         if (schema.getRequired() == null || schema.getProperties() == null) {
             return;
         }
-
         List<String> requiredFieldsList = new ArrayList<>(schema.getRequired());
         Collections.sort(requiredFieldsList);
-
         var properties = schema.getProperties();
         for (String requiredField : requiredFieldsList) {
             String fullFieldPath = buildFieldPath(pathPrefix, requiredField);
-            if (!requiredFields.containsKey(fullFieldPath)) {
-                Schema<?> propertySchema = properties.get(requiredField);
-                FieldDescriptor base = enrichArrayItems(typeResolver.resolve(propertySchema), propertySchema);
-                FieldDescriptor descriptor = inheritedTriggers.isEmpty()
-                    ? base
-                    : withTriggers(base, inheritedTriggers);
-                requiredFields.put(fullFieldPath, descriptor);
+            if (requiredFields.containsKey(fullFieldPath)) {
+                continue;
             }
+            Schema<?> propertySchema = properties.get(requiredField);
+            FieldDescriptor base = enrichArrayItems(typeResolver.resolve(propertySchema), propertySchema);
+            FieldDescriptor descriptor = inheritedTriggers.isEmpty()
+                ? base
+                : base.withDependsOn(inheritedTriggers);
+            requiredFields.put(fullFieldPath, descriptor);
         }
     }
 
     /**
-     * Returns a copy of {@code base} with the given triggers replacing
-     * {@code dependsOn}, preserving every other axis (constraints, enums, nullability).
-     * The previous shortcut that rebuilt the descriptor via the 4-arg constructor
-     * silently dropped all constraint info.
-     */
-    private FieldDescriptor withTriggers(FieldDescriptor base, List<Trigger> triggers) {
-        return new FieldDescriptor(
-            base.type(), base.nullable(), base.enumValues(), triggers,
-            base.arrayConstraints(), base.stringConstraints(), base.numberConstraints());
-    }
-
-    /**
      * Walks an array's {@code items} schema for required fields and attaches
-     * them to the descriptor's {@link ArrayConstraints}. Without this, an array
-     * of objects passes validation as long as the list is well-typed — the
+     * them to the descriptor's {@link ArrayTypeInfo}. Without this, an array of
+     * objects passes validation as long as the list is well-typed — the
      * element-level required-field checks never get emitted.
      */
     private FieldDescriptor enrichArrayItems(FieldDescriptor descriptor, Schema<?> propertySchema) {
-        if (descriptor.type() != FieldType.ARRAY) {
+        if (!(descriptor.typeInfo() instanceof ArrayTypeInfo array)) {
             return descriptor;
         }
         Schema<?> items = propertySchema == null ? null : propertySchema.getItems();
@@ -155,12 +134,8 @@ public class RequiredFieldsExtractor {
             return descriptor;
         }
         Map<String, FieldDescriptor> itemRequired = extractItemRequiredFields(items);
-        ArrayConstraints existing = descriptor.arrayConstraints();
-        ArrayConstraints enriched = new ArrayConstraints(
-            existing.minItems(), existing.maxItems(), existing.items(), itemRequired);
-        return new FieldDescriptor(
-            descriptor.type(), descriptor.nullable(), descriptor.enumValues(), descriptor.dependsOn(),
-            enriched, descriptor.stringConstraints(), descriptor.numberConstraints());
+        return descriptor.withTypeInfo(new ArrayTypeInfo(
+            array.minItems(), array.maxItems(), array.items(), itemRequired));
     }
 
     private Map<String, FieldDescriptor> extractItemRequiredFields(Schema<?> itemsSchema) {
@@ -196,11 +171,10 @@ public class RequiredFieldsExtractor {
     }
 
     /**
-     * Reads the supported subset of JSON Schema {@code if}/{@code then}:
-     * a single-property predicate with {@code const} or {@code enum} plus
+     * Reads the supported subset of JSON Schema {@code if}/{@code then}: a
+     * single-property predicate with {@code const} or {@code enum} plus
      * {@code required: [<that property>]}, and a {@code then} block listing
-     * required field names. Shapes outside this subset are silently ignored —
-     * the OpenAPI spec keeps its full semantics for tooling that supports more.
+     * required field names. Shapes outside this subset are silently ignored.
      */
     @SuppressWarnings("rawtypes")
     private void processConditional(Schema<?> schema,
@@ -231,10 +205,7 @@ public class RequiredFieldsExtractor {
         }
     }
 
-    /**
-     * Pulls the value trigger out of a supported {@code if} subschema, or
-     * returns null if the shape isn't one we handle.
-     */
+    /** Pulls a value trigger out of a supported {@code if} subschema, or null when the shape isn't handled. */
     @SuppressWarnings("rawtypes")
     private Trigger extractValueTrigger(Schema<?> ifSchema, String pathPrefix) {
         Map<String, Schema> ifProperties = ifSchema.getProperties();
@@ -288,22 +259,22 @@ public class RequiredFieldsExtractor {
             }
             List<Trigger> merged = new ArrayList<>(existing.dependsOn());
             merged.add(trigger);
-            requiredFields.put(fieldPath, withTriggers(existing, merged));
+            requiredFields.put(fieldPath, existing.withDependsOn(merged));
             return;
         }
         Schema<?> propertySchema = properties.get(fieldName);
         FieldDescriptor base = enrichArrayItems(typeResolver.resolve(propertySchema), propertySchema);
         List<Trigger> dependsOn = new ArrayList<>(inheritedTriggers);
         dependsOn.add(trigger);
-        requiredFields.put(fieldPath, withTriggers(base, dependsOn));
+        requiredFields.put(fieldPath, base.withDependsOn(dependsOn));
     }
 
     /**
-     * Handles {@code oneOf}: with a {@link Discriminator} + explicit mapping each
-     * branch's required fields become conditional on the discriminator value, and
-     * the discriminator property itself is pinned to the enum of mapping keys as
-     * an unconditional required field. Without a mapping, falls back to today's
-     * union-merge behavior so existing fixtures keep working.
+     * Handles {@code oneOf}: with a {@link Discriminator} + explicit mapping
+     * each branch's required fields become conditional on the discriminator
+     * value, and the discriminator property itself is pinned to the enum of
+     * mapping keys as an unconditional required field. Without a mapping,
+     * falls back to union-merge so existing fixtures keep working.
      */
     private void processOneOf(Schema<?> schema, Map<String, FieldDescriptor> requiredFields,
                               String pathPrefix, Set<Schema<?>> activeStack,
@@ -319,7 +290,6 @@ public class RequiredFieldsExtractor {
             processComposition(oneOf, requiredFields, pathPrefix, activeStack, inheritedTriggers);
             return;
         }
-
         String discriminatorPath = buildFieldPath(pathPrefix, propertyName);
         addDiscriminatorAsRequired(discriminatorPath, mapping.keySet(), requiredFields, inheritedTriggers);
 
@@ -364,8 +334,7 @@ public class RequiredFieldsExtractor {
             .<FeelLiteral>map(FeelString::new)
             .toList();
         requiredFields.put(discriminatorPath, new FieldDescriptor(
-            FieldType.STRING, false, sortedValues, inheritedTriggers,
-            ArrayConstraints.NONE, StringConstraints.NONE, NumberConstraints.NONE, ObjectConstraints.NONE));
+            StringTypeInfo.PLAIN, false, sortedValues, inheritedTriggers));
     }
 
     private void processComposition(List<?> schemas, Map<String, FieldDescriptor> requiredFields,
@@ -396,24 +365,19 @@ public class RequiredFieldsExtractor {
         if (properties == null) {
             return;
         }
-
         List<String> propertyNames = new ArrayList<>(properties.keySet());
         Collections.sort(propertyNames);
-
         for (String propName : propertyNames) {
             Schema<?> propSchema = properties.get(propName);
             String newPath = buildFieldPath(pathPrefix, propName);
-
             FieldDescriptor descriptor = typeResolver.resolve(propSchema);
-            if (descriptor.type() != FieldType.OBJECT) {
+            if (!(descriptor.typeInfo() instanceof ObjectTypeInfo)) {
                 continue;
             }
-
             FieldDescriptor parent = requiredFields.get(newPath);
             if (parent == null) {
                 continue;
             }
-
             List<Trigger> downstream = parent.isConditional() ? parent.dependsOn() : List.of();
             collectRequiredFields(propSchema, requiredFields, newPath, activeStack, downstream);
         }

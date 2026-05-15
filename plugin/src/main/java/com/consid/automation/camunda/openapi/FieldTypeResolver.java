@@ -5,15 +5,19 @@ import com.consid.automation.camunda.model.*;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.media.Schema;
+
 import java.math.BigDecimal;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * Determines the type of a field from an OpenAPI schema.
- * Single responsibility: map schema types to FieldType enum.
+ * Maps an OpenAPI schema to a {@link FieldDescriptor}. Owns the OpenAPI-side
+ * vocabulary (type/format/minimum/maximum/etc.) and produces a single sealed
+ * {@link TypeInfo} per schema. Stays out of FEEL rendering — that's
+ * the {@link com.consid.automation.camunda.feel.FEELExpressionBuilder}'s job.
  */
 public class FieldTypeResolver {
 
@@ -36,76 +40,68 @@ public class FieldTypeResolver {
     }
 
     /**
-     * Determines the field descriptor from a schema, resolving references first.
+     * Build a {@link FieldDescriptor} for the given schema, resolving any
+     * {@code $ref} first.
      */
     public FieldDescriptor resolve(Schema<?> schema) {
         if (schema == null) {
-            return FieldDescriptor.of(FieldType.UNKNOWN);
+            return FieldDescriptor.of(UnknownTypeInfo.INSTANCE);
         }
-
         Schema<?> resolved = resolveSchemaReference(schema);
-        FieldType type = mapTypeToFieldType(primaryType(resolved), resolved);
+        TypeInfo typeInfo = typeInfoFor(resolved);
         boolean nullable = isNullable(resolved);
         List<FeelLiteral> enumValues = enumValuesFrom(resolved);
-        return new FieldDescriptor(
-            type, nullable, enumValues, List.of(),
-            arrayConstraints(type, resolved),
-            stringConstraints(type, resolved),
-            numberConstraints(type, resolved),
-            objectConstraints(type, resolved));
+        return new FieldDescriptor(typeInfo, nullable, enumValues, List.of());
     }
 
     /**
-     * Captures {@code additionalProperties: false} as a closed allowed-key set.
-     * The boolean {@code true} (or absence) leaves the object open. Schema-form
-     * {@code additionalProperties} (a sub-schema specifying value types) is not
-     * supported here — only the strict boolean-false case is currently honored.
+     * Public for the extractor's reference-resolution needs (e.g., when reading
+     * the root schema directly). Throws if the {@code $ref} can't be resolved —
+     * a broken spec should fail loud rather than silently emit UNKNOWN rules.
      */
-    private ObjectConstraints objectConstraints(FieldType type, Schema<?> schema) {
-        if (type != FieldType.OBJECT) {
-            return ObjectConstraints.NONE;
+    public Schema<?> resolveSchemaReference(Schema<?> schema) {
+        if (schema == null) {
+            return null;
         }
-        Object additionalProperties = schema.getAdditionalProperties();
-        if (!Boolean.FALSE.equals(additionalProperties)) {
-            return ObjectConstraints.NONE;
+        String ref = schema.get$ref();
+        if (ref == null || !ref.startsWith(SCHEMA_PATH_PREFIX)) {
+            return schema;
         }
-        var properties = schema.getProperties();
-        Set<String> allowed = properties == null
-            ? Set.of()
-            : new java.util.LinkedHashSet<>(properties.keySet());
-        return new ObjectConstraints(allowed);
+        String schemaName = ref.substring(SCHEMA_PATH_PREFIX.length());
+        Components components = openAPI.getComponents();
+        @SuppressWarnings("rawtypes")
+        Map<String, Schema> schemas = components == null ? null : components.getSchemas();
+        Schema<?> resolved = schemas == null ? null : schemas.get(schemaName);
+        if (resolved == null) {
+            throw new IllegalStateException("Unresolved $ref: " + ref);
+        }
+        return resolved;
     }
 
-    private ArrayConstraints arrayConstraints(FieldType type, Schema<?> schema) {
-        if (type != FieldType.ARRAY) {
-            return ArrayConstraints.NONE;
+    private TypeInfo typeInfoFor(Schema<?> schema) {
+        String primary = primaryType(schema);
+        if (primary == null) {
+            return schemaIndicatesObject(schema) ? objectTypeInfo(schema) : UnknownTypeInfo.INSTANCE;
         }
-        Integer minItems = schema.getMinItems();
-        Integer maxItems = schema.getMaxItems();
-        // `items` may itself be a $ref or use composition. resolve() handles both;
-        // an unresolved items schema leaves the descriptor null (no element check).
-        FieldDescriptor items = schema.getItems() == null ? null : resolve(schema.getItems());
-        if (minItems == null && maxItems == null && items == null) {
-            return ArrayConstraints.NONE;
-        }
-        return new ArrayConstraints(minItems, maxItems, items, Map.of());
+        return switch (primary.toLowerCase(Locale.ROOT)) {
+            case "string" -> stringTypeInfo(schema);
+            case "number", "integer" -> numberTypeInfo(schema);
+            case "boolean" -> BooleanTypeInfo.INSTANCE;
+            case "array" -> arrayTypeInfo(schema);
+            case "object" -> objectTypeInfo(schema);
+            default -> UnknownTypeInfo.INSTANCE;
+        };
     }
 
-    private StringConstraints stringConstraints(FieldType type, Schema<?> schema) {
-        // String subtypes (DATE / DATE_TIME / TIME) still carry length / pattern semantics.
-        if (!isStringFamily(type)) {
-            return StringConstraints.NONE;
-        }
+    private StringTypeInfo stringTypeInfo(Schema<?> schema) {
+        StringTypeInfo.StringFormat format = stringFormat(schema.getFormat());
         Integer minLength = schema.getMinLength();
         Integer maxLength = schema.getMaxLength();
         String pattern = schema.getPattern();
         if (pattern == null || pattern.isEmpty()) {
             pattern = formatPattern(schema.getFormat());
         }
-        if (minLength == null && maxLength == null && (pattern == null || pattern.isEmpty())) {
-            return StringConstraints.NONE;
-        }
-        return new StringConstraints(minLength, maxLength, pattern);
+        return new StringTypeInfo(format, minLength, maxLength, pattern);
     }
 
     /**
@@ -125,23 +121,24 @@ public class FieldTypeResolver {
         };
     }
 
-    private boolean isStringFamily(FieldType type) {
-        return type == FieldType.STRING
-            || type == FieldType.DATE
-            || type == FieldType.DATE_TIME
-            || type == FieldType.TIME;
+    private StringTypeInfo.StringFormat stringFormat(String format) {
+        if (format == null) {
+            return StringTypeInfo.StringFormat.PLAIN;
+        }
+        return switch (format.toLowerCase(Locale.ROOT)) {
+            case "date" -> StringTypeInfo.StringFormat.DATE;
+            case "date-time" -> StringTypeInfo.StringFormat.DATE_TIME;
+            case "time" -> StringTypeInfo.StringFormat.TIME;
+            default -> StringTypeInfo.StringFormat.PLAIN;
+        };
     }
 
     /**
      * Captures numeric range and divisibility, normalizing the OpenAPI 3.0
      * boolean exclusive form (where {@code exclusiveMinimum: true} promotes
-     * {@code minimum} to exclusive) into the OpenAPI 3.1 numeric form so the
-     * expression builder sees a single representation.
+     * {@code minimum} to exclusive) into the OpenAPI 3.1 numeric form.
      */
-    private NumberConstraints numberConstraints(FieldType type, Schema<?> schema) {
-        if (type != FieldType.NUMBER) {
-            return NumberConstraints.NONE;
-        }
+    private NumberTypeInfo numberTypeInfo(Schema<?> schema) {
         BigDecimal inclusiveMin = schema.getMinimum();
         BigDecimal exclusiveMin = schema.getExclusiveMinimumValue();
         if (exclusiveMin == null && Boolean.TRUE.equals(schema.getExclusiveMinimum()) && inclusiveMin != null) {
@@ -154,13 +151,27 @@ public class FieldTypeResolver {
             exclusiveMax = inclusiveMax;
             inclusiveMax = null;
         }
-        BigDecimal multipleOf = schema.getMultipleOf();
-        if (inclusiveMin == null && exclusiveMin == null
-            && inclusiveMax == null && exclusiveMax == null
-            && multipleOf == null) {
-            return NumberConstraints.NONE;
+        return new NumberTypeInfo(inclusiveMin, exclusiveMin, inclusiveMax, exclusiveMax, schema.getMultipleOf());
+    }
+
+    private ArrayTypeInfo arrayTypeInfo(Schema<?> schema) {
+        FieldDescriptor items = schema.getItems() == null ? null : resolve(schema.getItems());
+        return new ArrayTypeInfo(schema.getMinItems(), schema.getMaxItems(), items, Map.of());
+    }
+
+    /**
+     * Captures {@code additionalProperties: false} as a closed allowed-key set.
+     * The boolean {@code true} (or absence) leaves the object open. Schema-form
+     * {@code additionalProperties} (a sub-schema specifying value types) is not
+     * supported here — only the strict boolean-false case.
+     */
+    private ObjectTypeInfo objectTypeInfo(Schema<?> schema) {
+        if (!Boolean.FALSE.equals(schema.getAdditionalProperties())) {
+            return ObjectTypeInfo.OPEN;
         }
-        return new NumberConstraints(inclusiveMin, exclusiveMin, inclusiveMax, exclusiveMax, multipleOf);
+        var properties = schema.getProperties();
+        Set<String> allowed = properties == null ? Set.of() : new LinkedHashSet<>(properties.keySet());
+        return new ObjectTypeInfo(allowed);
     }
 
     /**
@@ -211,66 +222,11 @@ public class FieldTypeResolver {
         return types.stream().anyMatch(t -> "null".equalsIgnoreCase(t));
     }
 
-    /**
-     * Maps OpenAPI type string to FieldType enum.
-     */
-    private FieldType mapTypeToFieldType(String type, Schema<?> schema) {
-        if (type == null) {
-            return schemaIndicatesObject(schema) ? FieldType.OBJECT : FieldType.UNKNOWN;
-        }
-
-        return switch (type.toLowerCase(Locale.ROOT)) {
-            case "string" -> stringSubtype(schema.getFormat());
-            case "number", "integer" -> FieldType.NUMBER;
-            case "boolean" -> FieldType.BOOLEAN;
-            case "array" -> FieldType.ARRAY;
-            case "object" -> FieldType.OBJECT;
-            default -> FieldType.UNKNOWN;
-        };
-    }
-
-    private FieldType stringSubtype(String format) {
-        if (format == null) {
-            return FieldType.STRING;
-        }
-        return switch (format.toLowerCase(Locale.ROOT)) {
-            case "date" -> FieldType.DATE;
-            case "date-time" -> FieldType.DATE_TIME;
-            case "time" -> FieldType.TIME;
-            default -> FieldType.STRING;
-        };
-    }
-
     private boolean schemaIndicatesObject(Schema<?> schema) {
         return schema.getProperties() != null
             || schema.getRequired() != null
             || schema.getAllOf() != null
             || schema.getOneOf() != null
             || schema.getAnyOf() != null;
-    }
-
-    /**
-     * Resolves a schema reference to the actual schema definition.
-     * Throws {@link IllegalStateException} when the reference cannot be resolved
-     * — a broken spec should fail loud rather than emit UNKNOWN rules.
-     */
-    public Schema<?> resolveSchemaReference(Schema<?> schema) {
-        if (schema == null) {
-            return null;
-        }
-
-        String ref = schema.get$ref();
-        if (ref == null || !ref.startsWith(SCHEMA_PATH_PREFIX)) {
-            return schema;
-        }
-
-        String schemaName = ref.substring(SCHEMA_PATH_PREFIX.length());
-        Components components = openAPI.getComponents();
-        Map<String, Schema> schemas = components == null ? null : components.getSchemas();
-        Schema<?> resolved = schemas == null ? null : schemas.get(schemaName);
-        if (resolved == null) {
-            throw new IllegalStateException("Unresolved $ref: " + ref);
-        }
-        return resolved;
     }
 }

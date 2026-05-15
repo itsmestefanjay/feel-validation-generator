@@ -38,7 +38,7 @@ class RequiredFieldsExtractorTest {
         Map<String, FieldDescriptor> result = extractor.extract(schema);
 
         // then
-        assertThat(result).containsEntry("username", FieldDescriptor.of(FieldType.STRING));
+        assertThat(result).containsEntry("username", FieldDescriptor.of(StringTypeInfo.PLAIN));
     }
 
     @Test
@@ -55,7 +55,7 @@ class RequiredFieldsExtractorTest {
         // then
         assertThat(result)
             .hasSize(1)
-            .containsEntry("username", FieldDescriptor.of(FieldType.STRING));
+            .containsEntry("username", FieldDescriptor.of(StringTypeInfo.PLAIN));
     }
 
     @Test
@@ -73,8 +73,8 @@ class RequiredFieldsExtractorTest {
 
         // then
         assertThat(result)
-            .containsEntry("data", FieldDescriptor.of(FieldType.OBJECT))
-            .containsEntry("data.content", FieldDescriptor.of(FieldType.STRING));
+            .containsEntry("data", FieldDescriptor.of(ObjectTypeInfo.OPEN))
+            .containsEntry("data.content", FieldDescriptor.of(StringTypeInfo.PLAIN));
     }
 
     @Test
@@ -94,8 +94,8 @@ class RequiredFieldsExtractorTest {
 
         // then
         assertThat(result)
-            .containsEntry("id", FieldDescriptor.of(FieldType.STRING))
-            .containsEntry("content", FieldDescriptor.of(FieldType.STRING));
+            .containsEntry("id", FieldDescriptor.of(StringTypeInfo.PLAIN))
+            .containsEntry("content", FieldDescriptor.of(StringTypeInfo.PLAIN));
     }
 
     @Test
@@ -115,8 +115,8 @@ class RequiredFieldsExtractorTest {
 
         // then
         assertThat(result)
-            .containsEntry("name", FieldDescriptor.of(FieldType.STRING))
-            .containsEntry("email", FieldDescriptor.of(FieldType.STRING));
+            .containsEntry("name", FieldDescriptor.of(StringTypeInfo.PLAIN))
+            .containsEntry("email", FieldDescriptor.of(StringTypeInfo.PLAIN));
     }
 
     @Test
@@ -136,8 +136,8 @@ class RequiredFieldsExtractorTest {
 
         // then
         assertThat(result)
-            .containsEntry("username", FieldDescriptor.of(FieldType.STRING))
-            .containsEntry("userId", FieldDescriptor.of(FieldType.STRING));
+            .containsEntry("username", FieldDescriptor.of(StringTypeInfo.PLAIN))
+            .containsEntry("userId", FieldDescriptor.of(StringTypeInfo.PLAIN));
     }
 
     @Test
@@ -172,7 +172,7 @@ class RequiredFieldsExtractorTest {
         // then
         FieldDescriptor carrier = result.get("shippingCarrier");
         assertThat(carrier).isNotNull();
-        assertThat(carrier.type()).isEqualTo(FieldType.STRING);
+        assertThat(carrier.typeInfo()).isInstanceOf(StringTypeInfo.class);
         assertThat(carrier.isConditional()).isTrue();
         assertThat(carrier.dependsOn()).containsExactly(Trigger.presence("shippingAddress"));
     }

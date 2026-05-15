@@ -4,72 +4,30 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Resolved description of a single OpenAPI field. Carries the base type plus the
- * orthogonal axes the FEEL generator needs to emit a complete rule: nullability,
- * the enum set the value must belong to, conditional-required triggers, and any
- * size / shape / range constraints attached to the property.
- *
- * <p>{@code dependsOn} entries describe the triggers that make this field
- * required. The field is required when at least one trigger fires; an empty
- * list means unconditionally required.
- *
- * <p>{@code arrayConstraints} / {@code stringConstraints} / {@code numberConstraints} /
- * {@code objectConstraints} default to their NONE sentinels and are only consulted
- * by the expression builder when {@code type} is the matching family.
+ * Resolved description of a single OpenAPI field. Three orthogonal axes:
+ * <ul>
+ *   <li>{@code typeInfo} — the field's type and its type-specific constraints
+ *       (length, range, items, allowed keys, etc.). Sealed; see {@link TypeInfo}.</li>
+ *   <li>{@code nullable} — flips the rule from
+ *       {@code field=null or (…)} to {@code field!=null and (…)}.</li>
+ *   <li>{@code enumValues} — the allowed-value set; empty means no enum check.</li>
+ *   <li>{@code dependsOn} — triggers that make this field conditionally required.
+ *       Empty means unconditionally required.</li>
+ * </ul>
  */
-public record FieldDescriptor(FieldType type,
+public record FieldDescriptor(TypeInfo typeInfo,
                               boolean nullable,
                               List<FeelLiteral> enumValues,
-                              List<Trigger> dependsOn,
-                              ArrayConstraints arrayConstraints,
-                              StringConstraints stringConstraints,
-                              NumberConstraints numberConstraints,
-                              ObjectConstraints objectConstraints) {
+                              List<Trigger> dependsOn) {
 
     public FieldDescriptor {
-        Objects.requireNonNull(type, "type");
+        Objects.requireNonNull(typeInfo, "typeInfo");
         enumValues = enumValues == null ? List.of() : List.copyOf(enumValues);
         dependsOn = dependsOn == null ? List.of() : List.copyOf(dependsOn);
-        arrayConstraints = arrayConstraints == null ? ArrayConstraints.NONE : arrayConstraints;
-        stringConstraints = stringConstraints == null ? StringConstraints.NONE : stringConstraints;
-        numberConstraints = numberConstraints == null ? NumberConstraints.NONE : numberConstraints;
-        objectConstraints = objectConstraints == null ? ObjectConstraints.NONE : objectConstraints;
     }
 
-    public FieldDescriptor(FieldType type, boolean nullable, List<FeelLiteral> enumValues) {
-        this(type, nullable, enumValues, List.of(),
-            ArrayConstraints.NONE, StringConstraints.NONE, NumberConstraints.NONE, ObjectConstraints.NONE);
-    }
-
-    public FieldDescriptor(FieldType type, boolean nullable, List<FeelLiteral> enumValues, List<Trigger> dependsOn) {
-        this(type, nullable, enumValues, dependsOn,
-            ArrayConstraints.NONE, StringConstraints.NONE, NumberConstraints.NONE, ObjectConstraints.NONE);
-    }
-
-    public FieldDescriptor(FieldType type,
-                           boolean nullable,
-                           List<FeelLiteral> enumValues,
-                           List<Trigger> dependsOn,
-                           ArrayConstraints arrayConstraints,
-                           StringConstraints stringConstraints) {
-        this(type, nullable, enumValues, dependsOn,
-            arrayConstraints, stringConstraints, NumberConstraints.NONE, ObjectConstraints.NONE);
-    }
-
-    public FieldDescriptor(FieldType type,
-                           boolean nullable,
-                           List<FeelLiteral> enumValues,
-                           List<Trigger> dependsOn,
-                           ArrayConstraints arrayConstraints,
-                           StringConstraints stringConstraints,
-                           NumberConstraints numberConstraints) {
-        this(type, nullable, enumValues, dependsOn,
-            arrayConstraints, stringConstraints, numberConstraints, ObjectConstraints.NONE);
-    }
-
-    public static FieldDescriptor of(FieldType type) {
-        return new FieldDescriptor(type, false, List.of(), List.of(),
-            ArrayConstraints.NONE, StringConstraints.NONE, NumberConstraints.NONE, ObjectConstraints.NONE);
+    public static FieldDescriptor of(TypeInfo typeInfo) {
+        return new FieldDescriptor(typeInfo, false, List.of(), List.of());
     }
 
     public boolean hasEnum() {
@@ -78,5 +36,15 @@ public record FieldDescriptor(FieldType type,
 
     public boolean isConditional() {
         return !dependsOn.isEmpty();
+    }
+
+    /** Returns a copy of this descriptor with the given typeInfo, preserving all other axes. */
+    public FieldDescriptor withTypeInfo(TypeInfo typeInfo) {
+        return new FieldDescriptor(typeInfo, nullable, enumValues, dependsOn);
+    }
+
+    /** Returns a copy of this descriptor with the given dependsOn, preserving all other axes. */
+    public FieldDescriptor withDependsOn(List<Trigger> dependsOn) {
+        return new FieldDescriptor(typeInfo, nullable, enumValues, dependsOn);
     }
 }

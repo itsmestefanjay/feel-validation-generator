@@ -18,7 +18,7 @@ class FEELRuleGeneratorTest {
         FEELRuleGenerator generator = new FEELRuleGenerator(false);
 
         // when
-        ValidationRule rule = generator.createRule("user.name", FieldDescriptor.of(FieldType.STRING));
+        ValidationRule rule = generator.createRule("user.name", FieldDescriptor.of(StringTypeInfo.PLAIN));
 
         // then
         assertThat(rule.id()).isEqualTo("user.name-invalid");
@@ -98,7 +98,7 @@ class FEELRuleGeneratorTest {
         // given
         FEELRuleGenerator generator = new FEELRuleGenerator(false);
         FieldDescriptor descriptor = new FieldDescriptor(
-            FieldType.STRING, false, List.of(), List.of(Trigger.presence("shippingAddress")));
+            StringTypeInfo.PLAIN, false, List.of(), List.of(Trigger.presence("shippingAddress")));
 
         // when
         ValidationRule rule = generator.createRule("shippingCarrier", descriptor);
@@ -116,7 +116,7 @@ class FEELRuleGeneratorTest {
         // given
         FEELRuleGenerator generator = new FEELRuleGenerator(false);
         FieldDescriptor descriptor = new FieldDescriptor(
-            FieldType.STRING, false, List.of(),
+            StringTypeInfo.PLAIN, false, List.of(),
             List.of(Trigger.value("paymentMethod", List.of(new FeelString("card")))));
 
         // when

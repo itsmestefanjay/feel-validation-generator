@@ -78,8 +78,7 @@ public class FEELRuleGenerator implements ValidationRuleBuilder {
         List<Trigger> qualified = descriptor.dependsOn().stream()
             .map(t -> t.withPrefix("req."))
             .toList();
-        return new FieldDescriptor(
-            descriptor.type(), descriptor.nullable(), descriptor.enumValues(), qualified);
+        return descriptor.withDependsOn(qualified);
     }
 
     @Override
