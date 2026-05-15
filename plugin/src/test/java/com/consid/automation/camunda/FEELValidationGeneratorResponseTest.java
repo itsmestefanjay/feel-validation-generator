@@ -1,8 +1,8 @@
 package com.consid.automation.camunda;
 
-import com.consid.automation.camunda.feel.*;
-import com.consid.automation.camunda.model.*;
-import com.consid.automation.camunda.openapi.*;
+import com.consid.automation.camunda.internal.feel.*;
+import com.consid.automation.camunda.internal.model.*;
+import com.consid.automation.camunda.internal.openapi.*;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
