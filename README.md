@@ -70,13 +70,23 @@ FEELValidationGenerator.builder()
 
 ## OpenAPI support
 
-Each required field in the resolved schema turns into one FEEL rule. The violation expression is `field=null or <type-violation>` by default; modifiers and conditionals adjust this shape.
+Each required field in the resolved schema turns into one FEEL rule. **Every clause the generator emits describes when the field is _invalid_** — the rule evaluates to `true` when at least one clause fires. The surrounding template wraps each rule in `{invalid: <clauses>}` and counts the `true` ones (`count(rules[invalid=true])=0`), so a rule that's `true` means the payload is rejected.
+
+The default rule body is `field=null or <type-violation>`. Modifiers (`enum`, `nullable`), value constraints (length, range, pattern), and conditional triggers add or transform clauses while preserving the "true ⇒ invalid" reading.
+
+Example. `age` declared as `type: integer, minimum: 18` emits:
+
+```
+req.age=null or not(req.age instance of number) or req.age<18
+```
+
+Read left to right: age is invalid if **missing** *or* **not a number** *or* **below 18**.
 
 ### Data types
 
-The type check verifies the value's runtime kind only. Required arrays may be empty, required strings may be `""`, etc., unless the schema declares a constraint that says otherwise (see *Value constraints* below).
+The type clause fires on the value's runtime kind only. Required arrays may be empty, required strings may be `""`, etc., unless the schema declares a constraint that says otherwise (see *Value constraints* below).
 
-| OpenAPI type / format | FEEL check |
+| OpenAPI type / format | Violation clause (true ⇒ invalid) |
 |---|---|
 | `type: string` | `not(X instance of string)` |
 | `type: string, format: date` | `date(X)=null` |
@@ -86,12 +96,12 @@ The type check verifies the value's runtime kind only. Required arrays may be em
 | `type: boolean` | `not(X instance of boolean)` |
 | `type: array` | `not(X instance of list)` |
 | `type: object` | `not(X instance of context)` |
-| unrecognised / missing | `null`-check only |
+| unrecognised / missing | `X=null` only (no type clause) |
 
-Two modifiers layer on top of the type check:
+Two modifiers layer on top of the type clause:
 
-- **`enum`** — appends `or not(X in (…))` to the violation. Strings are quoted, numbers and booleans emitted bare, `null` is `null`.
-- **`nullable: true`** (OpenAPI 3.0) / **`type: [<t>, "null"]`** (OpenAPI 3.1) — flips the rule from `field=null or (…)` to `field!=null and (…)`, so a missing value is fine but a malformed one still fails.
+- **`enum`** — adds `or not(X in (…))` to the violation chain, so the field is also invalid when its value isn't in the allowed set. Strings are quoted, numbers and booleans emitted bare, `null` is `null`.
+- **`nullable: true`** (OpenAPI 3.0) / **`type: [<t>, "null"]`** (OpenAPI 3.1) — flips the rule from `field=null or (…)` to `field!=null and (…)`, so a missing value is no longer treated as invalid; only a present-but-malformed one is.
 
 ### Value constraints
 
@@ -99,17 +109,17 @@ Schema keywords that bound the value's contents add OR-clauses to the violation 
 
 **Strings** (including `date`, `date-time`, `time` subtypes):
 
-| Keyword | FEEL clause |
+| Keyword | Violation clause (true ⇒ invalid) |
 |---|---|
 | `minLength: N` | `string length(X)<N` |
 | `maxLength: N` | `string length(X)>N` |
 | `pattern: <regex>` | `not(matches(X, "<regex>"))` |
 
-`minLength: 0` is preserved as the explicit "may be empty" signal and emits no check. Pattern strings are FEEL-escaped (backslashes and quotes).
+`minLength: 0` is preserved as the explicit "may be empty" signal and emits no clause. Pattern strings are FEEL-escaped (backslashes and quotes).
 
 **Arrays:**
 
-| Keyword | FEEL clause |
+| Keyword | Violation clause (true ⇒ invalid) |
 |---|---|
 | `minItems: N` | `count(X)<N` |
 | `maxItems: N` | `count(X)>N` |
@@ -118,7 +128,7 @@ Schema keywords that bound the value's contents add OR-clauses to the violation 
 
 **Numbers** (both `number` and `integer`):
 
-| Keyword | FEEL clause |
+| Keyword | Violation clause (true ⇒ invalid) |
 |---|---|
 | `minimum: N` | `X<N` |
 | `maximum: N` | `X>N` |
