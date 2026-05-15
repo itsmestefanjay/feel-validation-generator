@@ -1,40 +1,35 @@
 package com.consid.automation.camunda.model;
 
 import java.util.List;
-import java.util.Objects;
 
 /**
  * A conditional-requirement trigger. A field is required when at least one
  * of its triggers fires.
  *
  * <ul>
- *   <li>A presence trigger ({@code allowedValues} is empty) fires when the
- *       referenced path is non-null. Used for {@code dependentRequired}.</li>
- *   <li>A value trigger ({@code allowedValues} non-empty) fires when the
- *       referenced path equals one of the listed literals. Used for the
- *       supported subset of JSON Schema {@code if}/{@code then}: single-property
- *       predicates with {@code const} or {@code enum}.</li>
+ *   <li>{@link PresenceTrigger} fires when the referenced path is non-null.
+ *       Used for {@code dependentRequired}.</li>
+ *   <li>{@link ValueTrigger} fires when the referenced path equals one of the
+ *       listed literals. Used for the supported subset of JSON Schema
+ *       {@code if}/{@code then} (single-property predicates with {@code const}
+ *       or {@code enum}) and for discriminator-aware {@code oneOf} branches.</li>
  * </ul>
  *
- * {@code path} is a dot-path from the request body root. The FEEL renderer
- * prepends {@code req.} when emitting the expression.
+ * <p>{@code path} is a dot-path from the request body root. The FEEL renderer
+ * prepends {@code req.} via {@link #withPrefix(String)} when emitting.
  */
-public record Trigger(String path, List<FeelLiteral> allowedValues) {
+public sealed interface Trigger permits PresenceTrigger, ValueTrigger {
 
-    public Trigger {
-        Objects.requireNonNull(path, "path");
-        allowedValues = allowedValues == null ? List.of() : List.copyOf(allowedValues);
+    String path();
+
+    /** Returns a copy of this trigger with the given prefix prepended to the path. */
+    Trigger withPrefix(String prefix);
+
+    static Trigger presence(String path) {
+        return new PresenceTrigger(path);
     }
 
-    public static Trigger presence(String path) {
-        return new Trigger(path, List.of());
-    }
-
-    public static Trigger value(String path, List<FeelLiteral> allowedValues) {
-        return new Trigger(path, allowedValues);
-    }
-
-    public boolean isPresenceCheck() {
-        return allowedValues.isEmpty();
+    static Trigger value(String path, List<FeelLiteral> allowedValues) {
+        return new ValueTrigger(path, allowedValues);
     }
 }

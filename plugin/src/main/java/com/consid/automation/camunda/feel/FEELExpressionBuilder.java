@@ -172,9 +172,13 @@ public class FEELExpressionBuilder {
     }
 
     private String renderTrigger(Trigger trigger) {
-        if (trigger.isPresenceCheck()) {
-            return trigger.path() + "!=null";
-        }
+        return switch (trigger) {
+            case PresenceTrigger p -> p.path() + "!=null";
+            case ValueTrigger v -> renderValueTrigger(v);
+        };
+    }
+
+    private String renderValueTrigger(ValueTrigger trigger) {
         if (trigger.allowedValues().size() == 1) {
             FeelLiteral value = trigger.allowedValues().get(0);
             // Booleans render as bare path / not(path) since FEEL treats them identically to the
