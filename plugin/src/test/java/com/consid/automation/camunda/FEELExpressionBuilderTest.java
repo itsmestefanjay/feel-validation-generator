@@ -11,13 +11,119 @@ class FEELExpressionBuilderTest {
     private final FEELExpressionBuilder builder = new FEELExpressionBuilder();
 
     @Test
-    void test_string_expression_does_build_as_expected() {
+    void test_string_expression_without_constraints_does_only_check_type_as_expected() {
         // when
         String result = builder.build("username", FieldDescriptor.of(FieldType.STRING));
 
+        // then — required string with no minLength may be "" per JSON Schema; the type check is enough.
+        assertThat(result).isEqualTo("username=null or not(username instance of string)");
+    }
+
+    @Test
+    void test_string_expression_with_min_length_does_emit_length_lower_bound_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, false, List.of(), List.of(), ArrayConstraints.NONE,
+            new StringConstraints(3, null, null));
+
+        // when
+        String result = builder.build("username", descriptor);
+
         // then
-        assertThat(result)
-            .isEqualTo("username=null or not(username instance of string) or is blank(username)");
+        assertThat(result).isEqualTo(
+            "username=null or not(username instance of string) or string length(username)<3");
+    }
+
+    @Test
+    void test_string_expression_with_max_length_does_emit_length_upper_bound_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, false, List.of(), List.of(), ArrayConstraints.NONE,
+            new StringConstraints(null, 10, null));
+
+        // when
+        String result = builder.build("username", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "username=null or not(username instance of string) or string length(username)>10");
+    }
+
+    @Test
+    void test_string_expression_with_min_length_zero_does_omit_lower_bound_as_expected() {
+        // given — explicit "may be empty" should not emit a redundant length < 0 check
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, false, List.of(), List.of(), ArrayConstraints.NONE,
+            new StringConstraints(0, null, null));
+
+        // when
+        String result = builder.build("note", descriptor);
+
+        // then
+        assertThat(result).isEqualTo("note=null or not(note instance of string)");
+    }
+
+    @Test
+    void test_string_expression_with_pattern_does_emit_matches_check_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, false, List.of(), List.of(), ArrayConstraints.NONE,
+            new StringConstraints(null, null, "^[A-Z]{3}$"));
+
+        // when
+        String result = builder.build("code", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "code=null or not(code instance of string) or not(matches(code, \"^[A-Z]{3}$\"))");
+    }
+
+    @Test
+    void test_string_expression_with_pattern_containing_backslash_does_escape_as_expected() {
+        // given — \d is common in regex; emitted FEEL must keep the backslash literal
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, false, List.of(), List.of(), ArrayConstraints.NONE,
+            new StringConstraints(null, null, "^\\d{5}$"));
+
+        // when
+        String result = builder.build("zip", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "zip=null or not(zip instance of string) or not(matches(zip, \"^\\\\d{5}$\"))");
+    }
+
+    @Test
+    void test_string_expression_with_combined_constraints_does_chain_all_checks_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, false, List.of(), List.of(), ArrayConstraints.NONE,
+            new StringConstraints(2, 8, "^[a-z]+$"));
+
+        // when
+        String result = builder.build("handle", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "handle=null or not(handle instance of string)"
+                + " or string length(handle)<2"
+                + " or string length(handle)>8"
+                + " or not(matches(handle, \"^[a-z]+$\"))");
+    }
+
+    @Test
+    void test_nullable_string_with_min_length_does_only_check_when_present_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.STRING, true, List.of(), List.of(), ArrayConstraints.NONE,
+            new StringConstraints(1, null, null));
+
+        // when
+        String result = builder.build("nickname", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "nickname!=null and (not(nickname instance of string) or string length(nickname)<1)");
     }
 
     @Test
@@ -39,12 +145,81 @@ class FEELExpressionBuilderTest {
     }
 
     @Test
-    void test_array_expression_does_build_as_expected() {
+    void test_array_expression_without_constraints_does_only_check_type_as_expected() {
         // when
         String result = builder.build("tags", FieldDescriptor.of(FieldType.ARRAY));
 
+        // then — required array with no minItems may be empty per JSON Schema; the type check is enough.
+        assertThat(result).isEqualTo("tags=null or not(tags instance of list)");
+    }
+
+    @Test
+    void test_array_expression_with_min_items_does_emit_count_lower_bound_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.ARRAY, false, List.of(), List.of(), new ArrayConstraints(2, null), StringConstraints.NONE);
+
+        // when
+        String result = builder.build("tags", descriptor);
+
         // then
-        assertThat(result).isEqualTo("tags=null or not(tags instance of list) or is empty(tags)");
+        assertThat(result).isEqualTo(
+            "tags=null or not(tags instance of list) or count(tags)<2");
+    }
+
+    @Test
+    void test_array_expression_with_max_items_does_emit_count_upper_bound_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.ARRAY, false, List.of(), List.of(), new ArrayConstraints(null, 5), StringConstraints.NONE);
+
+        // when
+        String result = builder.build("tags", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "tags=null or not(tags instance of list) or count(tags)>5");
+    }
+
+    @Test
+    void test_array_expression_with_min_and_max_items_does_emit_both_bounds_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.ARRAY, false, List.of(), List.of(), new ArrayConstraints(1, 3), StringConstraints.NONE);
+
+        // when
+        String result = builder.build("tags", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "tags=null or not(tags instance of list) or count(tags)<1 or count(tags)>3");
+    }
+
+    @Test
+    void test_array_expression_with_min_items_zero_does_omit_lower_bound_as_expected() {
+        // given — explicit "may be empty" should not emit a redundant count(x) < 0 check
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.ARRAY, false, List.of(), List.of(), new ArrayConstraints(0, null), StringConstraints.NONE);
+
+        // when
+        String result = builder.build("tags", descriptor);
+
+        // then
+        assertThat(result).isEqualTo("tags=null or not(tags instance of list)");
+    }
+
+    @Test
+    void test_nullable_array_with_min_items_does_only_check_when_present_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.ARRAY, true, List.of(), List.of(), new ArrayConstraints(1, null), StringConstraints.NONE);
+
+        // when
+        String result = builder.build("tags", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "tags!=null and (not(tags instance of list) or count(tags)<1)");
     }
 
     @Test
@@ -102,7 +277,7 @@ class FEELExpressionBuilderTest {
 
         // then
         assertThat(result).isEqualTo(
-            "color=null or not(color instance of string) or is blank(color)"
+            "color=null or not(color instance of string)"
                 + " or not(color in (\"red\", \"green\", \"blue\"))");
     }
 
@@ -140,7 +315,7 @@ class FEELExpressionBuilderTest {
 
         // then
         assertThat(result)
-            .isEqualTo("nickname!=null and (not(nickname instance of string) or is blank(nickname))");
+            .isEqualTo("nickname!=null and (not(nickname instance of string))");
     }
 
     @Test
@@ -153,7 +328,7 @@ class FEELExpressionBuilderTest {
 
         // then
         assertThat(result).isEqualTo(
-            "status!=null and (not(status instance of string) or is blank(status) "
+            "status!=null and (not(status instance of string) "
                 + "or not(status in (\"a\", \"b\")))");
     }
 
@@ -169,7 +344,7 @@ class FEELExpressionBuilderTest {
         // then
         assertThat(result).isEqualTo(
             "req.shippingAddress!=null and ("
-                + "shippingCarrier=null or not(shippingCarrier instance of string) or is blank(shippingCarrier))");
+                + "shippingCarrier=null or not(shippingCarrier instance of string))");
     }
 
     @Test
@@ -199,7 +374,7 @@ class FEELExpressionBuilderTest {
         // then
         assertThat(result).isEqualTo(
             "req.paymentMethod=\"card\" and ("
-                + "cardNumber=null or not(cardNumber instance of string) or is blank(cardNumber))");
+                + "cardNumber=null or not(cardNumber instance of string))");
     }
 
     @Test

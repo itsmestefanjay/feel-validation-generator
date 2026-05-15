@@ -106,8 +106,7 @@ class FEELRuleGeneratorTest {
         assertThat(rule.invalidExpression()).isEqualTo(
             "req.shippingAddress!=null and ("
                 + "req.shippingCarrier=null"
-                + " or not(req.shippingCarrier instance of string)"
-                + " or is blank(req.shippingCarrier))");
+                + " or not(req.shippingCarrier instance of string))");
     }
 
     @Test
@@ -126,8 +125,7 @@ class FEELRuleGeneratorTest {
         assertThat(rule.invalidExpression()).isEqualTo(
             "req.paymentMethod=\"card\" and ("
                 + "req.cardNumber=null"
-                + " or not(req.cardNumber instance of string)"
-                + " or is blank(req.cardNumber))");
+                + " or not(req.cardNumber instance of string))");
     }
 
     @Test

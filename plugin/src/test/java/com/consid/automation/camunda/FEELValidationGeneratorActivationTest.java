@@ -167,6 +167,67 @@ public class FEELValidationGeneratorActivationTest extends AbstractFEELValidatio
         );
     }
 
+    @Test
+    public void test_constraints_activation_does_pass_for_valid_payload_with_empty_required_array_as_expected() throws IOException {
+        // notes is required but has no minItems → empty list satisfies it (the case that motivated this feature).
+        runActivationScenario(
+            "customers-constraints-valid",
+            "openapi/customers-constraints-api.json",
+            "payloads/customers-constraints-valid-variables.json",
+            true
+        );
+    }
+
+    @Test
+    public void test_constraints_activation_does_fail_when_array_under_min_items_as_expected() throws IOException {
+        runActivationScenario(
+            "customers-constraints-tags-empty",
+            "openapi/customers-constraints-api.json",
+            "payloads/customers-constraints-tags-empty-variables.json",
+            false
+        );
+    }
+
+    @Test
+    public void test_constraints_activation_does_fail_when_array_over_max_items_as_expected() throws IOException {
+        runActivationScenario(
+            "customers-constraints-tags-too-many",
+            "openapi/customers-constraints-api.json",
+            "payloads/customers-constraints-tags-too-many-variables.json",
+            false
+        );
+    }
+
+    @Test
+    public void test_constraints_activation_does_fail_when_string_under_min_length_as_expected() throws IOException {
+        runActivationScenario(
+            "customers-constraints-handle-too-short",
+            "openapi/customers-constraints-api.json",
+            "payloads/customers-constraints-handle-too-short-variables.json",
+            false
+        );
+    }
+
+    @Test
+    public void test_constraints_activation_does_fail_when_string_over_max_length_as_expected() throws IOException {
+        runActivationScenario(
+            "customers-constraints-handle-too-long",
+            "openapi/customers-constraints-api.json",
+            "payloads/customers-constraints-handle-too-long-variables.json",
+            false
+        );
+    }
+
+    @Test
+    public void test_constraints_activation_does_fail_when_string_pattern_does_not_match_as_expected() throws IOException {
+        runActivationScenario(
+            "customers-constraints-code-pattern-miss",
+            "openapi/customers-constraints-api.json",
+            "payloads/customers-constraints-code-pattern-miss-variables.json",
+            false
+        );
+    }
+
     private void runActivationScenario(String scenarioId,
                                        String openApiResource,
                                        String payloadResource,

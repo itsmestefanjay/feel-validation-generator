@@ -35,7 +35,43 @@ public class FieldTypeResolver {
         List<Object> enumValues = resolved.getEnum() == null
             ? List.of()
             : List.copyOf(resolved.getEnum());
-        return new FieldDescriptor(type, nullable, enumValues);
+        return new FieldDescriptor(
+            type, nullable, enumValues, List.of(),
+            arrayConstraints(type, resolved),
+            stringConstraints(type, resolved));
+    }
+
+    private ArrayConstraints arrayConstraints(FieldType type, Schema<?> schema) {
+        if (type != FieldType.ARRAY) {
+            return ArrayConstraints.NONE;
+        }
+        Integer minItems = schema.getMinItems();
+        Integer maxItems = schema.getMaxItems();
+        if (minItems == null && maxItems == null) {
+            return ArrayConstraints.NONE;
+        }
+        return new ArrayConstraints(minItems, maxItems);
+    }
+
+    private StringConstraints stringConstraints(FieldType type, Schema<?> schema) {
+        // String subtypes (DATE / DATE_TIME / TIME) still carry length / pattern semantics.
+        if (!isStringFamily(type)) {
+            return StringConstraints.NONE;
+        }
+        Integer minLength = schema.getMinLength();
+        Integer maxLength = schema.getMaxLength();
+        String pattern = schema.getPattern();
+        if (minLength == null && maxLength == null && (pattern == null || pattern.isEmpty())) {
+            return StringConstraints.NONE;
+        }
+        return new StringConstraints(minLength, maxLength, pattern);
+    }
+
+    private boolean isStringFamily(FieldType type) {
+        return type == FieldType.STRING
+            || type == FieldType.DATE
+            || type == FieldType.DATE_TIME
+            || type == FieldType.TIME;
     }
 
     /**

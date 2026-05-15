@@ -1,14 +1,15 @@
 package com.consid.automation.camunda;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
  * Generates FEEL expressions for validating fields.
  * Composition: a field is invalid when it is missing (and required) or present
- * in a form that violates its type / enum constraints. The two halves are kept
- * separate here so nullable fields can substitute the missing-check for an
- * is-present check.
+ * in a form that violates its type / enum / size / pattern constraints. The
+ * two halves are kept separate here so nullable fields can substitute the
+ * missing-check for an is-present check.
  */
 public class FEELExpressionBuilder {
 
@@ -29,26 +30,65 @@ public class FEELExpressionBuilder {
     }
 
     private String buildViolation(String fieldName, FieldDescriptor descriptor) {
-        String typeViolation = typeViolation(fieldName, descriptor.type());
-        if (!descriptor.hasEnum()) {
-            return typeViolation;
+        List<String> parts = new ArrayList<>();
+        addIfNotNull(parts, typeViolation(fieldName, descriptor.type()));
+        addAll(parts, sizeViolations(fieldName, descriptor));
+        if (descriptor.hasEnum()) {
+            parts.add("not(" + fieldName + " in (" + renderLiterals(descriptor.enumValues()) + "))");
         }
-        String enumViolation = "not(" + fieldName + " in (" + renderLiterals(descriptor.enumValues()) + "))";
-        return typeViolation == null ? enumViolation : typeViolation + " or " + enumViolation;
+        return parts.isEmpty() ? null : String.join(" or ", parts);
     }
 
     private String typeViolation(String fieldName, FieldType type) {
         return switch (type) {
-            case STRING -> "not(" + fieldName + " instance of string) or is blank(" + fieldName + ")";
+            case STRING -> "not(" + fieldName + " instance of string)";
             case NUMBER -> "not(" + fieldName + " instance of number)";
             case BOOLEAN -> "not(" + fieldName + " instance of boolean)";
-            case ARRAY -> "not(" + fieldName + " instance of list) or is empty(" + fieldName + ")";
+            case ARRAY -> "not(" + fieldName + " instance of list)";
             case OBJECT -> "not(" + fieldName + " instance of context)";
             case DATE -> "date(" + fieldName + ")=null";
             case DATE_TIME -> "date and time(" + fieldName + ")=null";
             case TIME -> "time(" + fieldName + ")=null";
             case UNKNOWN -> null;
         };
+    }
+
+    /**
+     * Emits the optional size / shape checks tied to a field's type family.
+     * Returned in the order the violations should appear in the final OR-chain
+     * so the rendered FEEL reads min-first, then max, then pattern.
+     */
+    private List<String> sizeViolations(String fieldName, FieldDescriptor descriptor) {
+        return switch (descriptor.type()) {
+            case ARRAY -> arrayViolations(fieldName, descriptor.arrayConstraints());
+            case STRING, DATE, DATE_TIME, TIME -> stringViolations(fieldName, descriptor.stringConstraints());
+            default -> List.of();
+        };
+    }
+
+    private List<String> arrayViolations(String fieldName, ArrayConstraints constraints) {
+        List<String> parts = new ArrayList<>();
+        if (constraints.hasMinItems()) {
+            parts.add("count(" + fieldName + ")<" + constraints.minItems());
+        }
+        if (constraints.hasMaxItems()) {
+            parts.add("count(" + fieldName + ")>" + constraints.maxItems());
+        }
+        return parts;
+    }
+
+    private List<String> stringViolations(String fieldName, StringConstraints constraints) {
+        List<String> parts = new ArrayList<>();
+        if (constraints.hasMinLength()) {
+            parts.add("string length(" + fieldName + ")<" + constraints.minLength());
+        }
+        if (constraints.hasMaxLength()) {
+            parts.add("string length(" + fieldName + ")>" + constraints.maxLength());
+        }
+        if (constraints.hasPattern()) {
+            parts.add("not(matches(" + fieldName + ", \"" + escapeLiteral(constraints.pattern()) + "\"))");
+        }
+        return parts;
     }
 
     private String guardExpression(List<Trigger> dependsOn) {
@@ -90,6 +130,22 @@ public class FEELExpressionBuilder {
         if (value instanceof Boolean || value instanceof Number) {
             return value.toString();
         }
-        return "\"" + value.toString().replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        return "\"" + escapeLiteral(value.toString()) + "\"";
+    }
+
+    private static String escapeLiteral(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private static void addIfNotNull(List<String> parts, String part) {
+        if (part != null) {
+            parts.add(part);
+        }
+    }
+
+    private static void addAll(List<String> parts, List<String> additions) {
+        if (!additions.isEmpty()) {
+            parts.addAll(additions);
+        }
     }
 }

@@ -206,4 +206,208 @@ class FieldTypeResolverTest {
         // then
         assertThat(result.nullable()).isFalse();
     }
+
+    @Test
+    void test_resolve_array_without_constraints_does_default_to_none_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("array");
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.arrayConstraints())
+            .as("Array without minItems/maxItems should carry the NONE sentinel — required no longer implies non-empty")
+            .isEqualTo(ArrayConstraints.NONE);
+    }
+
+    @Test
+    void test_resolve_array_min_items_does_capture_value_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("array");
+        schema.setMinItems(2);
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.arrayConstraints().minItems()).isEqualTo(2);
+        assertThat(result.arrayConstraints().maxItems()).isNull();
+    }
+
+    @Test
+    void test_resolve_array_min_items_zero_does_capture_value_as_expected() {
+        // given — explicit minItems: 0 is the canonical "present but may be empty" signal
+        Schema<?> schema = new Schema<>().type("array");
+        schema.setMinItems(0);
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.arrayConstraints().minItems())
+            .as("Explicit minItems: 0 should round-trip — distinguishes 'unset' from 'allow empty'")
+            .isZero();
+    }
+
+    @Test
+    void test_resolve_array_max_items_does_capture_value_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("array");
+        schema.setMaxItems(5);
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.arrayConstraints().maxItems()).isEqualTo(5);
+        assertThat(result.arrayConstraints().minItems()).isNull();
+    }
+
+    @Test
+    void test_resolve_array_min_and_max_items_does_capture_both_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("array");
+        schema.setMinItems(1);
+        schema.setMaxItems(3);
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.arrayConstraints().minItems()).isEqualTo(1);
+        assertThat(result.arrayConstraints().maxItems()).isEqualTo(3);
+    }
+
+    @Test
+    void test_resolve_non_array_with_min_items_does_ignore_constraint_as_expected() {
+        // given — minItems is array-only; on a string it has no meaning
+        Schema<?> schema = new Schema<>().type("string");
+        schema.setMinItems(2);
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.arrayConstraints())
+            .as("Array constraints should only attach to array-typed schemas")
+            .isEqualTo(ArrayConstraints.NONE);
+    }
+
+    @Test
+    void test_resolve_string_without_constraints_does_default_to_none_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("string");
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.stringConstraints())
+            .as("String without length/pattern should carry the NONE sentinel — required no longer implies non-blank")
+            .isEqualTo(StringConstraints.NONE);
+    }
+
+    @Test
+    void test_resolve_string_min_length_does_capture_value_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("string");
+        schema.setMinLength(3);
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.stringConstraints().minLength()).isEqualTo(3);
+        assertThat(result.stringConstraints().maxLength()).isNull();
+        assertThat(result.stringConstraints().pattern()).isNull();
+    }
+
+    @Test
+    void test_resolve_string_min_length_zero_does_capture_value_as_expected() {
+        // given — explicit minLength: 0 means "may be empty", distinct from "unset"
+        Schema<?> schema = new Schema<>().type("string");
+        schema.setMinLength(0);
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.stringConstraints().minLength()).isZero();
+    }
+
+    @Test
+    void test_resolve_string_max_length_does_capture_value_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("string");
+        schema.setMaxLength(255);
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.stringConstraints().maxLength()).isEqualTo(255);
+        assertThat(result.stringConstraints().minLength()).isNull();
+    }
+
+    @Test
+    void test_resolve_string_pattern_does_capture_value_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("string");
+        schema.setPattern("^[A-Z]{3}$");
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.stringConstraints().pattern()).isEqualTo("^[A-Z]{3}$");
+    }
+
+    @Test
+    void test_resolve_string_combined_constraints_does_capture_all_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("string");
+        schema.setMinLength(2);
+        schema.setMaxLength(10);
+        schema.setPattern("^[a-z]+$");
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.stringConstraints().minLength()).isEqualTo(2);
+        assertThat(result.stringConstraints().maxLength()).isEqualTo(10);
+        assertThat(result.stringConstraints().pattern()).isEqualTo("^[a-z]+$");
+    }
+
+    @Test
+    void test_resolve_non_string_with_pattern_does_ignore_constraint_as_expected() {
+        // given — pattern is string-only; on a number it has no meaning
+        Schema<?> schema = new Schema<>().type("number");
+        schema.setPattern("^[0-9]+$");
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.stringConstraints())
+            .as("String constraints should only attach to string-typed schemas")
+            .isEqualTo(StringConstraints.NONE);
+    }
+
+    @Test
+    void test_resolve_date_string_with_min_length_does_attach_to_string_constraints_as_expected() {
+        // given — DATE is a string subtype; length constraints still apply
+        Schema<?> schema = new Schema<>().type("string").format("date");
+        schema.setMinLength(10);
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.type()).isEqualTo(FieldType.DATE);
+        assertThat(result.stringConstraints().minLength())
+            .as("Date-formatted strings still carry length constraints — the format check is layered on top")
+            .isEqualTo(10);
+    }
 }
