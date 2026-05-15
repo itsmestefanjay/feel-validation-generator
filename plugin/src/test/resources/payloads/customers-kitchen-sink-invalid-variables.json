@@ -1,0 +1,21 @@
+{
+  "age": null,
+  "balance": null,
+  "enabled": null,
+  "newsletterConsent": null,
+  "handle": null,
+  "status": null,
+  "tier": null,
+  "birthDate": null,
+  "createdAt": null,
+  "openAt": null,
+  "tags": null,
+  "notes": null,
+  "profile": null,
+  "billingAddress": null,
+  "shippingAddress": null,
+  "shippingCarrier": null,
+  "paymentMethod": null,
+  "identification": null,
+  "loyaltyOrPromo": null
+}

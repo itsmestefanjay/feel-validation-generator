@@ -1,0 +1,36 @@
+{
+  "age": 30,
+  "balance": 42000.50,
+  "enabled": true,
+  "newsletterConsent": true,
+  "handle": "alice123",
+  "status": "active",
+  "tier": "gold",
+  "birthDate": "1990-01-15",
+  "createdAt": "2024-01-15T10:30:00",
+  "openAt": "09:00:00",
+  "tags": ["vip", "loyal"],
+  "notes": [],
+  "profile": {
+    "id": "p-001",
+    "email": "alice@example.com"
+  },
+  "billingAddress": {
+    "city": "Berlin",
+    "zip": "10115"
+  },
+  "shippingAddress": {
+    "city": "Berlin",
+    "zip": "10115"
+  },
+  "shippingCarrier": "DHL",
+  "paymentMethod": "invoice",
+  "identification": {
+    "passportNumber": "P12345",
+    "driversLicense": "D-987"
+  },
+  "loyaltyOrPromo": {
+    "loyaltyId": "L-001",
+    "promoCode": "WELCOME"
+  }
+}
