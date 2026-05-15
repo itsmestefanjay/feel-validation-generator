@@ -1,4 +1,4 @@
-package com.consid.automation.camunda;
+package com.consid.automation.camunda.model;
 
 import java.util.List;
 import java.util.Objects;

@@ -1,4 +1,6 @@
-package com.consid.automation.camunda;
+package com.consid.automation.camunda.feel;
+
+import com.consid.automation.camunda.model.*;
 
 import java.util.List;
 import java.util.Map;
@@ -8,7 +10,7 @@ import java.util.stream.Collectors;
  * Centralizes all FEEL-specific rule building and rendering logic so that the rest
  * of the generator remains focused on OpenAPI traversal.
  */
-class FEELRuleGenerator implements ValidationRuleBuilder {
+public class FEELRuleGenerator implements ValidationRuleBuilder {
 
     private static final String ACTIVATION_TEMPLATE = """
             {
@@ -38,15 +40,15 @@ class FEELRuleGenerator implements ValidationRuleBuilder {
     private final int successStatusCode;
     private final int failureStatusCode;
 
-    FEELRuleGenerator(boolean addResponse) {
+    public FEELRuleGenerator(boolean addResponse) {
         this(addResponse, 201, 400);
     }
 
-    FEELRuleGenerator(boolean addResponse, int successStatusCode, int failureStatusCode) {
+    public FEELRuleGenerator(boolean addResponse, int successStatusCode, int failureStatusCode) {
         this(addResponse, successStatusCode, failureStatusCode, new FEELExpressionBuilder());
     }
 
-    FEELRuleGenerator(boolean addResponse,
+    public FEELRuleGenerator(boolean addResponse,
                       int successStatusCode,
                       int failureStatusCode,
                       FEELExpressionBuilder expressionBuilder) {

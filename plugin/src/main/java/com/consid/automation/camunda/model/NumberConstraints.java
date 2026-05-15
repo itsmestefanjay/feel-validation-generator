@@ -1,4 +1,4 @@
-package com.consid.automation.camunda;
+package com.consid.automation.camunda.model;
 
 import java.math.BigDecimal;
 

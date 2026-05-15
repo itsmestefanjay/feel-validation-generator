@@ -1,4 +1,4 @@
-package com.consid.automation.camunda;
+package com.consid.automation.camunda.openapi;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
@@ -19,17 +19,17 @@ import java.util.Objects;
  * Keys in the returned map are FEEL output headings (e.g. {@code "# POST /customers"})
  * so downstream rendering can group rules by endpoint without further plumbing.
  */
-final class OpenApiOperationScanner {
+public final class OpenApiOperationScanner {
 
     private final List<String> httpMethods;
     private final String mediaType;
 
-    OpenApiOperationScanner(List<String> httpMethods, String mediaType) {
+    public OpenApiOperationScanner(List<String> httpMethods, String mediaType) {
         this.httpMethods = List.copyOf(Objects.requireNonNull(httpMethods, "httpMethods"));
         this.mediaType = Objects.requireNonNull(mediaType, "mediaType");
     }
 
-    Map<String, Schema<?>> scan(OpenAPI openAPI) {
+    public Map<String, Schema<?>> scan(OpenAPI openAPI) {
         Map<String, Schema<?>> schemasByEndpoint = new LinkedHashMap<>();
         if (openAPI.getPaths() == null) {
             return schemasByEndpoint;

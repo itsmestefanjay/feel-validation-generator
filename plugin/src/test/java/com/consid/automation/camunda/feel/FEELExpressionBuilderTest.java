@@ -1,4 +1,6 @@
-package com.consid.automation.camunda;
+package com.consid.automation.camunda.feel;
+
+import com.consid.automation.camunda.model.*;
 
 import org.junit.jupiter.api.Test;
 

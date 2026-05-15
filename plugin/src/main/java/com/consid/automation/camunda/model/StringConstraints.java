@@ -1,4 +1,4 @@
-package com.consid.automation.camunda;
+package com.consid.automation.camunda.model;
 
 /**
  * JSON Schema length and regex constraints for a string-typed field.

@@ -1,5 +1,9 @@
 package com.consid.automation.camunda;
 
+import com.consid.automation.camunda.feel.*;
+import com.consid.automation.camunda.model.*;
+import com.consid.automation.camunda.openapi.*;
+
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugin.logging.Log;

@@ -1,4 +1,6 @@
-package com.consid.automation.camunda;
+package com.consid.automation.camunda.openapi;
+
+import com.consid.automation.camunda.model.*;
 
 import io.swagger.v3.oas.models.media.Discriminator;
 import io.swagger.v3.oas.models.media.Schema;

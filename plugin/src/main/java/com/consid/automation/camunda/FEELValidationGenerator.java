@@ -1,5 +1,9 @@
 package com.consid.automation.camunda;
 
+import com.consid.automation.camunda.feel.*;
+import com.consid.automation.camunda.model.*;
+import com.consid.automation.camunda.openapi.*;
+
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.parser.OpenAPIV3Parser;

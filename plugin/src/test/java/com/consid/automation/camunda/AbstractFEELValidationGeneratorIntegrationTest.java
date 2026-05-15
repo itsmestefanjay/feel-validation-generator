@@ -1,5 +1,9 @@
 package com.consid.automation.camunda;
 
+import com.consid.automation.camunda.feel.*;
+import com.consid.automation.camunda.model.*;
+import com.consid.automation.camunda.openapi.*;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.camunda.feel.FeelEngine;
