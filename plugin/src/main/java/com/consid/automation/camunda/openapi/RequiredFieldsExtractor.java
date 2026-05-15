@@ -7,7 +7,6 @@ import io.swagger.v3.oas.models.media.Schema;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -249,22 +248,22 @@ public class RequiredFieldsExtractor {
             return null;
         }
         Schema<?> predicate = ifProperties.get(triggerProperty);
-        List<Object> allowedValues = literalValues(predicate);
+        List<FeelLiteral> allowedValues = literalValues(predicate);
         if (allowedValues.isEmpty()) {
             return null;
         }
         return Trigger.value(buildFieldPath(pathPrefix, triggerProperty), allowedValues);
     }
 
-    private List<Object> literalValues(Schema<?> predicate) {
+    private List<FeelLiteral> literalValues(Schema<?> predicate) {
         if (predicate == null) {
             return List.of();
         }
         if (predicate.getConst() != null) {
-            return List.of(predicate.getConst());
+            return List.of(FeelLiteral.of(predicate.getConst()));
         }
         if (predicate.getEnum() != null && !predicate.getEnum().isEmpty()) {
-            return List.copyOf(predicate.getEnum());
+            return FeelLiteral.listOf(predicate.getEnum());
         }
         return List.of();
     }
@@ -338,7 +337,8 @@ public class RequiredFieldsExtractor {
                 // Branch not in mapping — union-merge fallback for that branch alone.
                 collectRequiredFields(branch, requiredFields, pathPrefix, activeStack, inheritedTriggers);
             } else {
-                Trigger branchTrigger = Trigger.value(discriminatorPath, List.of(discriminatorValue));
+                Trigger branchTrigger = Trigger.value(
+                    discriminatorPath, List.of(new FeelString(discriminatorValue)));
                 List<Trigger> branchTriggers = new ArrayList<>(inheritedTriggers);
                 branchTriggers.add(branchTrigger);
                 collectRequiredFields(branch, requiredFields, pathPrefix, activeStack, branchTriggers);
@@ -359,8 +359,10 @@ public class RequiredFieldsExtractor {
         if (requiredFields.containsKey(discriminatorPath)) {
             return;
         }
-        List<Object> sortedValues = new ArrayList<>(allowedValues);
-        Collections.sort(sortedValues, Comparator.comparing(Object::toString));
+        List<FeelLiteral> sortedValues = allowedValues.stream()
+            .sorted()
+            .<FeelLiteral>map(FeelString::new)
+            .toList();
         requiredFields.put(discriminatorPath, new FieldDescriptor(
             FieldType.STRING, false, sortedValues, inheritedTriggers,
             ArrayConstraints.NONE, StringConstraints.NONE, NumberConstraints.NONE, ObjectConstraints.NONE));

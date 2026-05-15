@@ -19,7 +19,7 @@ import java.util.Objects;
  * {@code path} is a dot-path from the request body root. The FEEL renderer
  * prepends {@code req.} when emitting the expression.
  */
-public record Trigger(String path, List<Object> allowedValues) {
+public record Trigger(String path, List<FeelLiteral> allowedValues) {
 
     public Trigger {
         Objects.requireNonNull(path, "path");
@@ -30,7 +30,7 @@ public record Trigger(String path, List<Object> allowedValues) {
         return new Trigger(path, List.of());
     }
 
-    public static Trigger value(String path, List<Object> allowedValues) {
+    public static Trigger value(String path, List<FeelLiteral> allowedValues) {
         return new Trigger(path, allowedValues);
     }
 

@@ -117,7 +117,7 @@ class FEELRuleGeneratorTest {
         FEELRuleGenerator generator = new FEELRuleGenerator(false);
         FieldDescriptor descriptor = new FieldDescriptor(
             FieldType.STRING, false, List.of(),
-            List.of(Trigger.value("paymentMethod", List.of("card"))));
+            List.of(Trigger.value("paymentMethod", List.of(new FeelString("card")))));
 
         // when
         ValidationRule rule = generator.createRule("cardNumber", descriptor);

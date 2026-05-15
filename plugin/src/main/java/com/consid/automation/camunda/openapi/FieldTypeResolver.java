@@ -46,7 +46,7 @@ public class FieldTypeResolver {
         Schema<?> resolved = resolveSchemaReference(schema);
         FieldType type = mapTypeToFieldType(primaryType(resolved), resolved);
         boolean nullable = isNullable(resolved);
-        List<Object> enumValues = enumValuesFrom(resolved);
+        List<FeelLiteral> enumValues = enumValuesFrom(resolved);
         return new FieldDescriptor(
             type, nullable, enumValues, List.of(),
             arrayConstraints(type, resolved),
@@ -190,12 +190,12 @@ public class FieldTypeResolver {
      * {@code const} is promoted to a single-element enum so the existing in-check
      * renders the pinning constraint without any builder-side change.
      */
-    private List<Object> enumValuesFrom(Schema<?> schema) {
+    private List<FeelLiteral> enumValuesFrom(Schema<?> schema) {
         if (schema.getEnum() != null && !schema.getEnum().isEmpty()) {
-            return List.copyOf(schema.getEnum());
+            return FeelLiteral.listOf(schema.getEnum());
         }
         if (schema.getConst() != null) {
-            return List.of(schema.getConst());
+            return List.of(FeelLiteral.of(schema.getConst()));
         }
         return List.of();
     }

@@ -199,7 +199,8 @@ class FieldTypeResolverTest {
         FieldDescriptor result = resolver.resolve(schema);
 
         // then
-        assertThat(result.enumValues()).containsExactly("red", "green", "blue");
+        assertThat(result.enumValues()).containsExactly(
+            new FeelString("red"), new FeelString("green"), new FeelString("blue"));
     }
 
     @Test
@@ -215,7 +216,7 @@ class FieldTypeResolverTest {
         // then
         assertThat(result.enumValues())
             .as("const should surface in the same channel as enum so the existing in-check renders it")
-            .containsExactly("v1");
+            .containsExactly(new FeelString("v1"));
     }
 
     @Test
@@ -230,7 +231,7 @@ class FieldTypeResolverTest {
         FieldDescriptor result = resolver.resolve(schema);
 
         // then
-        assertThat(result.enumValues()).containsExactly("a", "b");
+        assertThat(result.enumValues()).containsExactly(new FeelString("a"), new FeelString("b"));
     }
 
     @Test

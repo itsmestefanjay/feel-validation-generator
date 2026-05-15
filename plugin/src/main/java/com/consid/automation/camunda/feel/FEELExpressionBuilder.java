@@ -176,34 +176,21 @@ public class FEELExpressionBuilder {
             return trigger.path() + "!=null";
         }
         if (trigger.allowedValues().size() == 1) {
-            Object value = trigger.allowedValues().get(0);
+            FeelLiteral value = trigger.allowedValues().get(0);
             // Booleans render as bare path / not(path) since FEEL treats them identically to the
             // explicit =true / =false comparison, including under null inputs.
-            if (Boolean.TRUE.equals(value)) {
-                return trigger.path();
+            if (value instanceof FeelBoolean(boolean b)) {
+                return b ? trigger.path() : "not(" + trigger.path() + ")";
             }
-            if (Boolean.FALSE.equals(value)) {
-                return "not(" + trigger.path() + ")";
-            }
-            return trigger.path() + "=" + renderLiteral(value);
+            return trigger.path() + "=" + value.render();
         }
         return trigger.path() + " in (" + renderLiterals(trigger.allowedValues()) + ")";
     }
 
-    private String renderLiterals(List<Object> values) {
+    private String renderLiterals(List<FeelLiteral> values) {
         return values.stream()
-            .map(FEELExpressionBuilder::renderLiteral)
+            .map(FeelLiteral::render)
             .collect(Collectors.joining(", "));
-    }
-
-    private static String renderLiteral(Object value) {
-        if (value == null) {
-            return "null";
-        }
-        if (value instanceof Boolean || value instanceof Number) {
-            return value.toString();
-        }
-        return "\"" + escapeLiteral(value.toString()) + "\"";
     }
 
     private static String escapeLiteral(String value) {

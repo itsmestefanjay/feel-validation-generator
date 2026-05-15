@@ -239,7 +239,7 @@ class RequiredFieldsExtractorTest {
         assertThat(cardNumber).isNotNull();
         assertThat(cardNumber.isConditional()).isTrue();
         assertThat(cardNumber.dependsOn())
-            .containsExactly(Trigger.value("paymentMethod", List.of("card")));
+            .containsExactly(Trigger.value("paymentMethod", List.of(new FeelString("card"))));
     }
 
     @Test
@@ -262,7 +262,7 @@ class RequiredFieldsExtractorTest {
 
         // then
         assertThat(result.get("discountCode").dependsOn())
-            .containsExactly(Trigger.value("tier", List.of("gold", "platinum")));
+            .containsExactly(Trigger.value("tier", List.of(new FeelString("gold"), new FeelString("platinum"))));
     }
 
     @Test
@@ -314,7 +314,7 @@ class RequiredFieldsExtractorTest {
         Map<String, FieldDescriptor> result = extractor.extract(root);
 
         // then
-        Trigger expected = Trigger.value("needsDelivery", List.of(Boolean.TRUE));
+        Trigger expected = Trigger.value("needsDelivery", List.of(new FeelBoolean(true)));
         assertThat(result.get("delivery").dependsOn()).containsExactly(expected);
         assertThat(result.get("delivery.address").dependsOn())
             .as("Inner required fields of a conditionally-required parent must inherit its trigger")
@@ -400,12 +400,12 @@ class RequiredFieldsExtractorTest {
         FieldDescriptor paidAt = result.get("paidAt");
         assertThat(paidAt.isConditional()).isTrue();
         assertThat(paidAt.dependsOn())
-            .containsExactly(Trigger.value("type", List.of("invoice.paid")));
+            .containsExactly(Trigger.value("type", List.of(new FeelString("invoice.paid"))));
 
         FieldDescriptor failureReason = result.get("failureReason");
         assertThat(failureReason.isConditional()).isTrue();
         assertThat(failureReason.dependsOn())
-            .containsExactly(Trigger.value("type", List.of("invoice.failed")));
+            .containsExactly(Trigger.value("type", List.of(new FeelString("invoice.failed"))));
     }
 
     @Test
@@ -446,7 +446,7 @@ class RequiredFieldsExtractorTest {
             .isFalse();
         assertThat(type.enumValues())
             .as("Discriminator enum should pin the allowed branch values for the type field")
-            .containsExactlyInAnyOrder("a-event", "b-event");
+            .containsExactlyInAnyOrder(new FeelString("a-event"), new FeelString("b-event"));
     }
 
     @Test

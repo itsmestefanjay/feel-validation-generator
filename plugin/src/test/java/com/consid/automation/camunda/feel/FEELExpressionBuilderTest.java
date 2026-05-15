@@ -516,7 +516,8 @@ class FEELExpressionBuilderTest {
     @Test
     void test_string_enum_does_append_in_check_after_type_check_as_expected() {
         // given
-        FieldDescriptor descriptor = new FieldDescriptor(FieldType.STRING, false, List.of("red", "green", "blue"));
+        FieldDescriptor descriptor = new FieldDescriptor(FieldType.STRING, false,
+            List.of(new FeelString("red"), new FeelString("green"), new FeelString("blue")));
 
         // when
         String result = builder.build("color", descriptor);
@@ -530,7 +531,10 @@ class FEELExpressionBuilderTest {
     @Test
     void test_number_enum_does_render_numeric_literals_unquoted_as_expected() {
         // given
-        FieldDescriptor descriptor = new FieldDescriptor(FieldType.NUMBER, false, List.of(1, 2, 3));
+        FieldDescriptor descriptor = new FieldDescriptor(FieldType.NUMBER, false,
+            List.of(new FeelNumber(new BigDecimal("1")),
+                    new FeelNumber(new BigDecimal("2")),
+                    new FeelNumber(new BigDecimal("3"))));
 
         // when
         String result = builder.build("rank", descriptor);
@@ -542,7 +546,8 @@ class FEELExpressionBuilderTest {
     @Test
     void test_enum_string_with_quotes_does_escape_as_expected() {
         // given
-        FieldDescriptor descriptor = new FieldDescriptor(FieldType.STRING, false, List.of("say \"hi\""));
+        FieldDescriptor descriptor = new FieldDescriptor(FieldType.STRING, false,
+            List.of(new FeelString("say \"hi\"")));
 
         // when
         String result = builder.build("greeting", descriptor);
@@ -567,7 +572,8 @@ class FEELExpressionBuilderTest {
     @Test
     void test_nullable_enum_does_combine_present_and_in_checks_as_expected() {
         // given
-        FieldDescriptor descriptor = new FieldDescriptor(FieldType.STRING, true, List.of("a", "b"));
+        FieldDescriptor descriptor = new FieldDescriptor(FieldType.STRING, true,
+            List.of(new FeelString("a"), new FeelString("b")));
 
         // when
         String result = builder.build("status", descriptor);
@@ -612,7 +618,7 @@ class FEELExpressionBuilderTest {
         // given — string value trigger
         FieldDescriptor descriptor = new FieldDescriptor(
             FieldType.STRING, false, List.of(),
-            List.of(Trigger.value("req.paymentMethod", List.of("card"))));
+            List.of(Trigger.value("req.paymentMethod", List.of(new FeelString("card")))));
 
         // when
         String result = builder.build("cardNumber", descriptor);
@@ -628,7 +634,7 @@ class FEELExpressionBuilderTest {
         // given
         FieldDescriptor descriptor = new FieldDescriptor(
             FieldType.STRING, false, List.of(),
-            List.of(Trigger.value("req.flagged", List.of(true))));
+            List.of(Trigger.value("req.flagged", List.of(new FeelBoolean(true)))));
 
         // when
         String result = builder.build("reason", descriptor);
@@ -642,7 +648,7 @@ class FEELExpressionBuilderTest {
         // given
         FieldDescriptor descriptor = new FieldDescriptor(
             FieldType.STRING, false, List.of(),
-            List.of(Trigger.value("req.flagged", List.of(false))));
+            List.of(Trigger.value("req.flagged", List.of(new FeelBoolean(false)))));
 
         // when
         String result = builder.build("reason", descriptor);
@@ -656,7 +662,7 @@ class FEELExpressionBuilderTest {
         // given
         FieldDescriptor descriptor = new FieldDescriptor(
             FieldType.STRING, false, List.of(),
-            List.of(Trigger.value("req.tier", List.of("gold", "platinum"))));
+            List.of(Trigger.value("req.tier", List.of(new FeelString("gold"), new FeelString("platinum")))));
 
         // when
         String result = builder.build("discountCode", descriptor);

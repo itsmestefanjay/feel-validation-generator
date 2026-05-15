@@ -19,7 +19,7 @@ import java.util.Objects;
  */
 public record FieldDescriptor(FieldType type,
                               boolean nullable,
-                              List<Object> enumValues,
+                              List<FeelLiteral> enumValues,
                               List<Trigger> dependsOn,
                               ArrayConstraints arrayConstraints,
                               StringConstraints stringConstraints,
@@ -36,19 +36,19 @@ public record FieldDescriptor(FieldType type,
         objectConstraints = objectConstraints == null ? ObjectConstraints.NONE : objectConstraints;
     }
 
-    public FieldDescriptor(FieldType type, boolean nullable, List<Object> enumValues) {
+    public FieldDescriptor(FieldType type, boolean nullable, List<FeelLiteral> enumValues) {
         this(type, nullable, enumValues, List.of(),
             ArrayConstraints.NONE, StringConstraints.NONE, NumberConstraints.NONE, ObjectConstraints.NONE);
     }
 
-    public FieldDescriptor(FieldType type, boolean nullable, List<Object> enumValues, List<Trigger> dependsOn) {
+    public FieldDescriptor(FieldType type, boolean nullable, List<FeelLiteral> enumValues, List<Trigger> dependsOn) {
         this(type, nullable, enumValues, dependsOn,
             ArrayConstraints.NONE, StringConstraints.NONE, NumberConstraints.NONE, ObjectConstraints.NONE);
     }
 
     public FieldDescriptor(FieldType type,
                            boolean nullable,
-                           List<Object> enumValues,
+                           List<FeelLiteral> enumValues,
                            List<Trigger> dependsOn,
                            ArrayConstraints arrayConstraints,
                            StringConstraints stringConstraints) {
@@ -58,7 +58,7 @@ public record FieldDescriptor(FieldType type,
 
     public FieldDescriptor(FieldType type,
                            boolean nullable,
-                           List<Object> enumValues,
+                           List<FeelLiteral> enumValues,
                            List<Trigger> dependsOn,
                            ArrayConstraints arrayConstraints,
                            StringConstraints stringConstraints,
