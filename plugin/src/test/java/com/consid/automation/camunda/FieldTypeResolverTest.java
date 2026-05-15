@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -409,5 +410,155 @@ class FieldTypeResolverTest {
         assertThat(result.stringConstraints().minLength())
             .as("Date-formatted strings still carry length constraints — the format check is layered on top")
             .isEqualTo(10);
+    }
+
+    @Test
+    void test_resolve_number_without_constraints_does_default_to_none_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("number");
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.numberConstraints())
+            .as("Number without range/multipleOf should carry the NONE sentinel")
+            .isEqualTo(NumberConstraints.NONE);
+    }
+
+    @Test
+    void test_resolve_number_minimum_does_capture_as_inclusive_lower_bound_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("number");
+        schema.setMinimum(new BigDecimal("0"));
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.numberConstraints().minimum()).isEqualByComparingTo("0");
+        assertThat(result.numberConstraints().exclusiveMinimum()).isNull();
+    }
+
+    @Test
+    void test_resolve_number_maximum_does_capture_as_inclusive_upper_bound_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("number");
+        schema.setMaximum(new BigDecimal("100"));
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.numberConstraints().maximum()).isEqualByComparingTo("100");
+        assertThat(result.numberConstraints().exclusiveMaximum()).isNull();
+    }
+
+    @Test
+    void test_resolve_number_exclusive_minimum_3_1_form_does_capture_as_exclusive_bound_as_expected() {
+        // given — OpenAPI 3.1 / JSON Schema 2020-12: exclusiveMinimum is a number
+        Schema<?> schema = new Schema<>().type("number");
+        schema.setExclusiveMinimumValue(new BigDecimal("0"));
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.numberConstraints().exclusiveMinimum()).isEqualByComparingTo("0");
+        assertThat(result.numberConstraints().minimum())
+            .as("3.1-style exclusive lower should not also populate the inclusive lower")
+            .isNull();
+    }
+
+    @Test
+    void test_resolve_number_exclusive_minimum_3_0_form_does_normalize_to_exclusive_bound_as_expected() {
+        // given — OpenAPI 3.0: exclusiveMinimum is a boolean that promotes `minimum` to exclusive
+        Schema<?> schema = new Schema<>().type("number");
+        schema.setMinimum(new BigDecimal("5"));
+        schema.setExclusiveMinimum(Boolean.TRUE);
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.numberConstraints().exclusiveMinimum())
+            .as("3.0-style boolean exclusiveMinimum should be normalized into the exclusive slot")
+            .isEqualByComparingTo("5");
+        assertThat(result.numberConstraints().minimum())
+            .as("Once promoted to exclusive, the inclusive slot is cleared so the builder sees one form")
+            .isNull();
+    }
+
+    @Test
+    void test_resolve_number_exclusive_maximum_3_1_form_does_capture_as_exclusive_bound_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("number");
+        schema.setExclusiveMaximumValue(new BigDecimal("1"));
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.numberConstraints().exclusiveMaximum()).isEqualByComparingTo("1");
+        assertThat(result.numberConstraints().maximum()).isNull();
+    }
+
+    @Test
+    void test_resolve_number_exclusive_maximum_3_0_form_does_normalize_to_exclusive_bound_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("number");
+        schema.setMaximum(new BigDecimal("100"));
+        schema.setExclusiveMaximum(Boolean.TRUE);
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.numberConstraints().exclusiveMaximum()).isEqualByComparingTo("100");
+        assertThat(result.numberConstraints().maximum()).isNull();
+    }
+
+    @Test
+    void test_resolve_number_multiple_of_does_capture_value_as_expected() {
+        // given
+        Schema<?> schema = new Schema<>().type("number");
+        schema.setMultipleOf(new BigDecimal("100"));
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.numberConstraints().multipleOf()).isEqualByComparingTo("100");
+    }
+
+    @Test
+    void test_resolve_integer_with_number_constraints_does_still_capture_them_as_expected() {
+        // given — `integer` collapses to FieldType.NUMBER; range/multipleOf constraints still apply
+        Schema<?> schema = new Schema<>().type("integer");
+        schema.setMinimum(new BigDecimal("18"));
+        schema.setMaximum(new BigDecimal("120"));
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.type()).isEqualTo(FieldType.NUMBER);
+        assertThat(result.numberConstraints().minimum()).isEqualByComparingTo("18");
+        assertThat(result.numberConstraints().maximum()).isEqualByComparingTo("120");
+    }
+
+    @Test
+    void test_resolve_non_number_with_minimum_does_ignore_constraint_as_expected() {
+        // given — `minimum` is number-only; on a string it has no meaning
+        Schema<?> schema = new Schema<>().type("string");
+        schema.setMinimum(new BigDecimal("5"));
+
+        // when
+        FieldDescriptor result = resolver.resolve(schema);
+
+        // then
+        assertThat(result.numberConstraints())
+            .as("Number constraints should only attach to number/integer schemas")
+            .isEqualTo(NumberConstraints.NONE);
     }
 }

@@ -2,6 +2,7 @@ package com.consid.automation.camunda;
 
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -133,6 +134,154 @@ class FEELExpressionBuilderTest {
 
         // then
         assertThat(result).isEqualTo("age=null or not(age instance of number)");
+    }
+
+    @Test
+    void test_number_expression_with_minimum_does_emit_inclusive_lower_bound_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.NUMBER, false, List.of(), List.of(),
+            ArrayConstraints.NONE, StringConstraints.NONE,
+            new NumberConstraints(new BigDecimal("18"), null, null, null, null));
+
+        // when
+        String result = builder.build("age", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "age=null or not(age instance of number) or age<18");
+    }
+
+    @Test
+    void test_number_expression_with_maximum_does_emit_inclusive_upper_bound_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.NUMBER, false, List.of(), List.of(),
+            ArrayConstraints.NONE, StringConstraints.NONE,
+            new NumberConstraints(null, null, new BigDecimal("120"), null, null));
+
+        // when
+        String result = builder.build("age", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "age=null or not(age instance of number) or age>120");
+    }
+
+    @Test
+    void test_number_expression_with_exclusive_minimum_does_emit_le_bound_as_expected() {
+        // given — violation when x is at or below the exclusive lower
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.NUMBER, false, List.of(), List.of(),
+            ArrayConstraints.NONE, StringConstraints.NONE,
+            new NumberConstraints(null, new BigDecimal("0"), null, null, null));
+
+        // when
+        String result = builder.build("discount", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "discount=null or not(discount instance of number) or discount<=0");
+    }
+
+    @Test
+    void test_number_expression_with_exclusive_maximum_does_emit_ge_bound_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.NUMBER, false, List.of(), List.of(),
+            ArrayConstraints.NONE, StringConstraints.NONE,
+            new NumberConstraints(null, null, null, new BigDecimal("1"), null));
+
+        // when
+        String result = builder.build("discount", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "discount=null or not(discount instance of number) or discount>=1");
+    }
+
+    @Test
+    void test_number_expression_with_multiple_of_does_emit_modulo_check_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.NUMBER, false, List.of(), List.of(),
+            ArrayConstraints.NONE, StringConstraints.NONE,
+            new NumberConstraints(null, null, null, null, new BigDecimal("100")));
+
+        // when
+        String result = builder.build("points", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "points=null or not(points instance of number) or modulo(points, 100)!=0");
+    }
+
+    @Test
+    void test_number_expression_with_combined_bounds_does_chain_min_max_then_multiple_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.NUMBER, false, List.of(), List.of(),
+            ArrayConstraints.NONE, StringConstraints.NONE,
+            new NumberConstraints(new BigDecimal("0"), null, new BigDecimal("1000"), null, new BigDecimal("50")));
+
+        // when
+        String result = builder.build("amount", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "amount=null or not(amount instance of number)"
+                + " or amount<0"
+                + " or amount>1000"
+                + " or modulo(amount, 50)!=0");
+    }
+
+    @Test
+    void test_number_expression_with_negative_bound_does_render_unary_minus_as_expected() {
+        // given — FEEL parses `x<-100` as `x < (-100)`; unary minus binds tighter than comparison
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.NUMBER, false, List.of(), List.of(),
+            ArrayConstraints.NONE, StringConstraints.NONE,
+            new NumberConstraints(new BigDecimal("-100"), null, null, null, null));
+
+        // when
+        String result = builder.build("delta", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "delta=null or not(delta instance of number) or delta<-100");
+    }
+
+    @Test
+    void test_number_expression_with_big_decimal_in_scientific_notation_does_render_plain_as_expected() {
+        // given — BigDecimal.toString() emits "1E+2" for some inputs; FEEL would not parse that.
+        // toPlainString must be used so the rendered literal is "100".
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.NUMBER, false, List.of(), List.of(),
+            ArrayConstraints.NONE, StringConstraints.NONE,
+            new NumberConstraints(null, null, new BigDecimal("1E2"), null, null));
+
+        // when
+        String result = builder.build("value", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "value=null or not(value instance of number) or value>100");
+    }
+
+    @Test
+    void test_nullable_number_with_minimum_does_only_check_when_present_as_expected() {
+        // given
+        FieldDescriptor descriptor = new FieldDescriptor(
+            FieldType.NUMBER, true, List.of(), List.of(),
+            ArrayConstraints.NONE, StringConstraints.NONE,
+            new NumberConstraints(new BigDecimal("0"), null, null, null, null));
+
+        // when
+        String result = builder.build("balance", descriptor);
+
+        // then
+        assertThat(result).isEqualTo(
+            "balance!=null and (not(balance instance of number) or balance<0)");
     }
 
     @Test

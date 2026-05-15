@@ -50,6 +50,7 @@
                   "handle",
                   "identification",
                   "loyaltyOrPromo",
+                  "loyaltyPoints",
                   "newsletterConsent",
                   "notes",
                   "openAt",
@@ -60,8 +61,9 @@
                   "tier"
                 ],
                 "properties": {
-                  "age": { "type": "integer" },
+                  "age": { "type": "integer", "minimum": 0, "maximum": 120 },
                   "balance": { "type": "number" },
+                  "loyaltyPoints": { "type": "integer", "minimum": 0, "multipleOf": 100 },
                   "enabled": { "type": "boolean" },
                   "newsletterConsent": { "type": "boolean" },
                   "handle": { "type": "string", "minLength": 3, "maxLength": 20, "pattern": "^[a-z][a-z0-9]+$" },

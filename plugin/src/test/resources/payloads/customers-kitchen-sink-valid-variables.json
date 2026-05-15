@@ -1,6 +1,7 @@
 {
   "age": 30,
   "balance": 42000.50,
+  "loyaltyPoints": 500,
   "enabled": true,
   "newsletterConsent": true,
   "handle": "alice123",

@@ -1,6 +1,7 @@
 {
   "age": null,
   "balance": null,
+  "loyaltyPoints": null,
   "enabled": null,
   "newsletterConsent": null,
   "handle": null,

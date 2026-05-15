@@ -1,5 +1,6 @@
 package com.consid.automation.camunda;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -62,6 +63,7 @@ public class FEELExpressionBuilder {
         return switch (descriptor.type()) {
             case ARRAY -> arrayViolations(fieldName, descriptor.arrayConstraints());
             case STRING, DATE, DATE_TIME, TIME -> stringViolations(fieldName, descriptor.stringConstraints());
+            case NUMBER -> numberViolations(fieldName, descriptor.numberConstraints());
             default -> List.of();
         };
     }
@@ -89,6 +91,35 @@ public class FEELExpressionBuilder {
             parts.add("not(matches(" + fieldName + ", \"" + escapeLiteral(constraints.pattern()) + "\"))");
         }
         return parts;
+    }
+
+    private List<String> numberViolations(String fieldName, NumberConstraints constraints) {
+        List<String> parts = new ArrayList<>();
+        if (constraints.hasMinimum()) {
+            parts.add(fieldName + "<" + renderNumber(constraints.minimum()));
+        }
+        if (constraints.hasExclusiveMinimum()) {
+            parts.add(fieldName + "<=" + renderNumber(constraints.exclusiveMinimum()));
+        }
+        if (constraints.hasMaximum()) {
+            parts.add(fieldName + ">" + renderNumber(constraints.maximum()));
+        }
+        if (constraints.hasExclusiveMaximum()) {
+            parts.add(fieldName + ">=" + renderNumber(constraints.exclusiveMaximum()));
+        }
+        if (constraints.hasMultipleOf()) {
+            parts.add("modulo(" + fieldName + ", " + renderNumber(constraints.multipleOf()) + ")!=0");
+        }
+        return parts;
+    }
+
+    /**
+     * Render a BigDecimal as a FEEL number literal. {@link BigDecimal#toString()}
+     * can emit scientific notation ({@code 1E+2}) which FEEL would not parse;
+     * {@link BigDecimal#toPlainString()} keeps the literal numeric.
+     */
+    private static String renderNumber(BigDecimal value) {
+        return value.toPlainString();
     }
 
     private String guardExpression(List<Trigger> dependsOn) {

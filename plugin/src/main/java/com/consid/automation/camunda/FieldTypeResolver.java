@@ -3,6 +3,7 @@ package com.consid.automation.camunda;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.media.Schema;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -38,7 +39,8 @@ public class FieldTypeResolver {
         return new FieldDescriptor(
             type, nullable, enumValues, List.of(),
             arrayConstraints(type, resolved),
-            stringConstraints(type, resolved));
+            stringConstraints(type, resolved),
+            numberConstraints(type, resolved));
     }
 
     private ArrayConstraints arrayConstraints(FieldType type, Schema<?> schema) {
@@ -72,6 +74,37 @@ public class FieldTypeResolver {
             || type == FieldType.DATE
             || type == FieldType.DATE_TIME
             || type == FieldType.TIME;
+    }
+
+    /**
+     * Captures numeric range and divisibility, normalizing the OpenAPI 3.0
+     * boolean exclusive form (where {@code exclusiveMinimum: true} promotes
+     * {@code minimum} to exclusive) into the OpenAPI 3.1 numeric form so the
+     * expression builder sees a single representation.
+     */
+    private NumberConstraints numberConstraints(FieldType type, Schema<?> schema) {
+        if (type != FieldType.NUMBER) {
+            return NumberConstraints.NONE;
+        }
+        BigDecimal inclusiveMin = schema.getMinimum();
+        BigDecimal exclusiveMin = schema.getExclusiveMinimumValue();
+        if (exclusiveMin == null && Boolean.TRUE.equals(schema.getExclusiveMinimum()) && inclusiveMin != null) {
+            exclusiveMin = inclusiveMin;
+            inclusiveMin = null;
+        }
+        BigDecimal inclusiveMax = schema.getMaximum();
+        BigDecimal exclusiveMax = schema.getExclusiveMaximumValue();
+        if (exclusiveMax == null && Boolean.TRUE.equals(schema.getExclusiveMaximum()) && inclusiveMax != null) {
+            exclusiveMax = inclusiveMax;
+            inclusiveMax = null;
+        }
+        BigDecimal multipleOf = schema.getMultipleOf();
+        if (inclusiveMin == null && exclusiveMin == null
+            && inclusiveMax == null && exclusiveMax == null
+            && multipleOf == null) {
+            return NumberConstraints.NONE;
+        }
+        return new NumberConstraints(inclusiveMin, exclusiveMin, inclusiveMax, exclusiveMax, multipleOf);
     }
 
     /**

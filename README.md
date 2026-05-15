@@ -74,15 +74,17 @@ Each required field in the resolved schema turns into one FEEL rule. The violati
 
 ### Data types
 
+The type check verifies the value's runtime kind only. Required arrays may be empty, required strings may be `""`, etc., unless the schema declares a constraint that says otherwise (see *Value constraints* below).
+
 | OpenAPI type / format | FEEL check |
 |---|---|
-| `type: string` | `not(X instance of string) or is blank(X)` |
+| `type: string` | `not(X instance of string)` |
 | `type: string, format: date` | `date(X)=null` |
 | `type: string, format: date-time` | `date and time(X)=null` |
 | `type: string, format: time` | `time(X)=null` |
 | `type: number` / `type: integer` | `not(X instance of number)` |
 | `type: boolean` | `not(X instance of boolean)` |
-| `type: array` | `not(X instance of list) or is empty(X)` |
+| `type: array` | `not(X instance of list)` |
 | `type: object` | `not(X instance of context)` |
 | unrecognised / missing | `null`-check only |
 
@@ -90,6 +92,43 @@ Two modifiers layer on top of the type check:
 
 - **`enum`** — appends `or not(X in (…))` to the violation. Strings are quoted, numbers and booleans emitted bare, `null` is `null`.
 - **`nullable: true`** (OpenAPI 3.0) / **`type: [<t>, "null"]`** (OpenAPI 3.1) — flips the rule from `field=null or (…)` to `field!=null and (…)`, so a missing value is fine but a malformed one still fails.
+
+### Value constraints
+
+Schema keywords that bound the value's contents add OR-clauses to the violation chain. Each is emitted only when the schema declares it — there's no implicit "non-empty" / "non-blank" assumption.
+
+**Strings** (including `date`, `date-time`, `time` subtypes):
+
+| Keyword | FEEL clause |
+|---|---|
+| `minLength: N` | `string length(X)<N` |
+| `maxLength: N` | `string length(X)>N` |
+| `pattern: <regex>` | `not(matches(X, "<regex>"))` |
+
+`minLength: 0` is preserved as the explicit "may be empty" signal and emits no check. Pattern strings are FEEL-escaped (backslashes and quotes).
+
+**Arrays:**
+
+| Keyword | FEEL clause |
+|---|---|
+| `minItems: N` | `count(X)<N` |
+| `maxItems: N` | `count(X)>N` |
+
+`minItems: 0` (or absence) means a required key may carry an empty list. To require non-empty, set `minItems: 1`.
+
+**Numbers** (both `number` and `integer`):
+
+| Keyword | FEEL clause |
+|---|---|
+| `minimum: N` | `X<N` |
+| `maximum: N` | `X>N` |
+| `exclusiveMinimum: N` *(OpenAPI 3.1 number)* | `X<=N` |
+| `minimum: N` + `exclusiveMinimum: true` *(OpenAPI 3.0 boolean)* | `X<=N` (normalized) |
+| `exclusiveMaximum: N` *(OpenAPI 3.1 number)* | `X>=N` |
+| `maximum: N` + `exclusiveMaximum: true` *(OpenAPI 3.0 boolean)* | `X>=N` (normalized) |
+| `multipleOf: N` | `modulo(X, N)!=0` |
+
+Both OpenAPI 3.0 (boolean) and OpenAPI 3.1 (numeric) forms of `exclusiveMinimum` / `exclusiveMaximum` are recognized and normalized into a single representation.
 
 ### References & composition
 
@@ -114,8 +153,7 @@ dependentRequired:
 ```feel
 {invalid: req.shippingAddress!=null and (
   req.shippingCarrier=null
-  or not(req.shippingCarrier instance of string)
-  or is blank(req.shippingCarrier))}
+  or not(req.shippingCarrier instance of string))}
 ```
 
 **`if`/`then`** *(value-conditional)* — *"if this field equals a specific value, those fields are required."* Supported subset: a single-property predicate using `const` or `enum`, with `required: [<that property>]` inside the `if`. Anything outside the subset is silently skipped.
@@ -135,8 +173,7 @@ then:
 ```feel
 {invalid: req.paymentMethod="card" and (
   req.cardNumber=null
-  or not(req.cardNumber instance of string)
-  or is blank(req.cardNumber))}
+  or not(req.cardNumber instance of string))}
 ```
 
 `enum` predicates produce an `in (…)` check, e.g. `req.tier in ("gold", "platinum") and (…)`. Boolean `const` triggers render compactly as the bare path: `const: true` becomes `req.flag and (…)`, `const: false` becomes `not(req.flag) and (…)`.
@@ -152,7 +189,9 @@ Known limitations of the generator. Specs may use these constructs, but they won
 - **`if`/`then` predicates** beyond a single-property `const` or `enum` are skipped. No multi-property `if`, no nested logic, no `pattern` / range / length predicates, no `else` branch.
 - **`if`/`then` dependents must be sibling property names.** Dot-paths like `card.number` in `then.required` are not honored. Place the `if`/`then` inside the nested object's schema instead — the extractor recurses, so a nested-level `if`/`then` works correctly for its own properties.
 - **`oneOf` / `anyOf` are union-merged** rather than exclusive. Every branch's required fields are added, so the generated FEEL is stricter than the spec implies. Use `if`/`then` if you need exclusive alternatives.
-- **No value constraints beyond `enum`.** `pattern`, `minLength` / `maxLength`, `minimum` / `maximum`, `minItems` / `maxItems`, `uniqueItems`, `multipleOf`, `additionalProperties: false`, and `const` outside `if` are not enforced.
+- **`allOf` / `oneOf` / `anyOf` inside a property** need an explicit `"type": "object"` on the property for the extractor to recurse. Composition keywords alone are not currently treated as object-indicating.
+- **Array element schemas (`items`) are not validated.** A required typed array passes the type and bounds checks but its elements aren't inspected.
+- **Not yet supported:** `uniqueItems`, `additionalProperties: false`, `minProperties` / `maxProperties`, `const` outside `if`, `readOnly` / `writeOnly`, format-driven validations beyond date/date-time/time (e.g. `email`, `uuid`), and discriminator-aware `oneOf` selection.
 
 ## Output modes
 
@@ -166,11 +205,11 @@ Boolean expression intended for the connector's `activationCondition` field. Inv
   req: request.body,
   rules: [
     {invalid: req.annualIncome=null or not(req.annualIncome instance of number)},
-    {invalid: req.customerId=null or not(req.customerId instance of string) or is blank(req.customerId)},
-    {invalid: req.firstName=null or not(req.firstName instance of string) or is blank(req.firstName)},
+    {invalid: req.customerId=null or not(req.customerId instance of string)},
+    {invalid: req.firstName=null or not(req.firstName instance of string) or string length(req.firstName)<1},
     {invalid: req.newsletterConsent=null or not(req.newsletterConsent instance of boolean)},
     {invalid: req.profile=null or not(req.profile instance of context)},
-    {invalid: req.profile.bio=null or not(req.profile.bio instance of string) or is blank(req.profile.bio)}
+    {invalid: req.profile.bio=null or not(req.profile.bio instance of string) or string length(req.profile.bio)<1}
   ],
   isValid: count(rules[invalid=true])=0
 }.isValid
@@ -188,11 +227,11 @@ Context expression intended for the connector's `responseExpression` field. The 
   req: request.body,
   rules: [
     { id: "annualIncome-invalid", field: "annualIncome", invalid: req.annualIncome=null or not(req.annualIncome instance of number) },
-    { id: "customerId-invalid", field: "customerId", invalid: req.customerId=null or not(req.customerId instance of string) or is blank(req.customerId) },
-    { id: "firstName-invalid", field: "firstName", invalid: req.firstName=null or not(req.firstName instance of string) or is blank(req.firstName) },
+    { id: "customerId-invalid", field: "customerId", invalid: req.customerId=null or not(req.customerId instance of string) },
+    { id: "firstName-invalid", field: "firstName", invalid: req.firstName=null or not(req.firstName instance of string) or string length(req.firstName)<1 },
     { id: "newsletterConsent-invalid", field: "newsletterConsent", invalid: req.newsletterConsent=null or not(req.newsletterConsent instance of boolean) },
     { id: "profile-invalid", field: "profile", invalid: req.profile=null or not(req.profile instance of context) },
-    { id: "profile.bio-invalid", field: "profile.bio", invalid: req.profile.bio=null or not(req.profile.bio instance of string) or is blank(req.profile.bio) }
+    { id: "profile.bio-invalid", field: "profile.bio", invalid: req.profile.bio=null or not(req.profile.bio instance of string) or string length(req.profile.bio)<1 }
   ],
   isValid: count(rules[invalid=true])=0,
   body: {
